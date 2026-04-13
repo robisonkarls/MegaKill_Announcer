@@ -1,0 +1,8 @@
+## Interface: 11403
+## Title: MegaKill Announcer
+## Notes: Announces multi-kills and killing sprees with screen text, sounds, and chat messages.
+## Author: Merathilis
+## Version: 1.0
+## SavedVariables: MegaKill_Config
+
+Core.lua
