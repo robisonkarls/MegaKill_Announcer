@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: MegaKill Announcer
 ## Notes: Announces multi-kills and killing sprees with screen text, sounds, and chat messages.
-## Author: Merathilis
+## Author: Robison Karls Custodio
 ## Version: 1.0
 ## SavedVariables: MegaKill_Config
 
