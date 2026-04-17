@@ -172,22 +172,6 @@ local function ChatAnnounce(text)
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
 end
 
-local function PlayMilestoneSound(count)
-	if not db.sound then return end
-	local sound
-	if count >= 6 then
-		sound = "Interface\\AddOns\\MegaKill_Announcer\\assets\\monsterkill.mp3"
-	else
-		sound = SOUNDS[count]
-	end
-	if not sound then return end
-	if type(sound) == "string" then
-		PlaySoundFile(sound, "Master")
-	else
-		PlaySound(sound, "Master")
-	end
-end
-
 -- Export for Config.lua test buttons
 function MegaKill_PlayMilestoneSound(count)
 	PlayMilestoneSound(count)
