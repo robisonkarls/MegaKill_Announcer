@@ -6,11 +6,13 @@ local DEFAULTS = {
 	enabled       = true,
 	screenAnnounce = true,
 	chatAnnounce  = false,
-	chatChannel   = "SAY",
+	chatChannel   = "PARTY",
 	sound         = true,
-	killWindow    = 15,    -- seconds: kills within this window count as multi-kill
-	onlyPvP       = false, -- if true, only count player kills (Honorable Kills)
+	soundPack     = "Unreal_Theme",  -- default sound pack
+	killWindow    = 15,
+	onlyPvP       = false,
 	spreeAnnounce = true,
+	streakBar     = true,
 }
 
 -- Multi-kill milestones (kills within killWindow seconds of each other)
@@ -28,19 +30,38 @@ local MULTI_KILL = {
 
 -- Killing spree milestones (player kills without dying)
 local KILLING_SPREE = {
-	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0 },
-	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0 },
-	[15] = { text = "Unstoppable!",   r = 1.0, g = 0.2, b = 0.0 },
-	[20] = { text = "Dominating!",    r = 0.6, g = 0.0, b = 1.0 },
-	[25] = { text = "Godlike!",       r = 0.0, g = 0.8, b = 1.0 },
-	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0 },
+	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0, sound = "Killing_Spree" },
+	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0, sound = "Rampage"       },
+	[15] = { text = "Unstoppable!",   r = 1.0, g = 0.2, b = 0.0, sound = "Unstoppable"   },
+	[20] = { text = "Dominating!",    r = 0.6, g = 0.0, b = 1.0, sound = "Dominating"    },
+	[25] = { text = "Godlike!",       r = 0.0, g = 0.8, b = 1.0, sound = "Godlike"       },
+	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0, sound = "Wicked_Sick"   },
 }
 
-local SOUNDS = {
-	[2] = "Interface\\AddOns\\MegaKill_Announcer\\assets\\doublekill.mp3",
-	[3] = "Interface\\AddOns\\MegaKill_Announcer\\assets\\triplekill.mp3",
-	[4] = 8174,
-	[5] = 8174,
+-- ── Sound packs ──────────────────────────────────────────────────────────────
+-- Each pack maps event keys to file names inside assets/<packName>/
+-- Keys: multi-kill counts (1-9) and spree milestone names
+
+local SOUND_PACKS = {
+	Unreal_Theme = {
+		-- Multi-kill (single = specific, array = random pool)
+		[1]  = { "first_blood.wav" },
+		[2]  = { "double_kill.wav" },
+		[3]  = { "triple_kill.mp3" },
+		[4]  = { "mega_kill.wav" },
+		[5]  = { "mega_kill.wav" },
+		[6]  = { "monster_kill.wav" },
+		[7]  = { "ultra_kill.wav" },
+		[8]  = { "ludicrous_kill.wav", "ownage.wav" },
+		[9]  = { "holy_shit.wav", "ownage.wav" },
+		-- Killing spree
+		Killing_Spree = { "killing_spree.wav" },
+		Rampage       = { "rampage.wav" },
+		Unstoppable   = { "unstoppable.wav" },
+		Dominating    = { "dominating.wav" },
+		Godlike       = { "godlike.wav" },
+		Wicked_Sick   = { "wicked_sick.wav" },
+	},
 }
 
 local db
@@ -48,6 +69,29 @@ local playerGUID
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
+
+local function GetSound(key)
+	if not db or not db.sound then return nil end
+	local pack = SOUND_PACKS[db.soundPack]
+	if not pack then return nil end
+	local pool = pack[key]
+	if not pool or #pool == 0 then return nil end
+	local file = pool[math.random(#pool)]
+	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file
+end
+
+local function PlayMilestoneSound(key)
+	local sound = GetSound(key)
+	if sound then
+		PlaySoundFile(sound, "Master")
+	end
+end
+
+-- Export for Config.lua test buttons
+function MegaKill_PlayMilestoneSound(key)
+	PlayMilestoneSound(key)
+end
+
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
@@ -97,48 +141,42 @@ end
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
--- Queue chat messages and send them out of combat to avoid ADDON_ACTION_BLOCKED
+-- Queue chat messages and send them only when combat ends (PLAYER_REGEN_ENABLED)
 local chatQueue = {}
 local chatFrame = CreateFrame("Frame")
-chatFrame:SetScript("OnUpdate", function()
-	if #chatQueue == 0 then return end
-	if InCombatLockdown() then return end
-	local msg = table.remove(chatQueue, 1)
-	pcall(SendChatMessage, msg.text, msg.channel)
+chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+chatFrame:SetScript("OnEvent", function()
+	while #chatQueue > 0 do
+		local msg = table.remove(chatQueue, 1)
+		SendChatMessage(msg.text, msg.channel)
+	end
 end)
+
+local function GetSafeChannel(requested)
+	-- Validate that the requested channel is actually available right now
+	if requested == "BATTLEGROUND" then
+		if not UnitInBattleground("player") then return nil end
+	elseif requested == "INSTANCE_CHAT" then
+		if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return nil end
+	elseif requested == "RAID" then
+		if not IsInRaid() then return nil end
+	elseif requested == "PARTY" then
+		if not IsInGroup() then return nil end
+	end
+	return requested
+end
 
 local function ChatAnnounce(text)
 	if not db.chatAnnounce then return end
-	local channel = db.chatChannel or "SAY"
-	if channel == "PARTY" and not IsInGroup() then channel = "SAY" end
-	if channel == "RAID"  and not IsInRaid()  then channel = "PARTY" end
+	local channel = GetSafeChannel(db.chatChannel)
+	if not channel then return end  -- not in the right situation, skip silently
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
-end
-
-local function PlayMilestoneSound(count)
-	if not db.sound then return end
-	local sound
-	if count >= 6 then
-		sound = "Interface\\AddOns\\MegaKill_Announcer\\assets\\monsterkill.mp3"
-	else
-		sound = SOUNDS[count]
-	end
-	if not sound then return end
-	if type(sound) == "string" then
-		PlaySoundFile(sound, "Master")
-	else
-		PlaySound(sound, "Master")
-	end
-end
-
--- Export for Config.lua test buttons
-function MegaKill_PlayMilestoneSound(count)
-	PlayMilestoneSound(count)
 end
 
 local function ResetMultiKill()
 	multiKillCount = 0
 	multiKillTimer = nil
+	if MegaKill_StreakBar_Reset then MegaKill_StreakBar_Reset() end
 end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
@@ -151,6 +189,11 @@ local function OnKill(isPlayer)
 	if multiKillTimer then multiKillTimer:Cancel() end
 	multiKillCount = multiKillCount + 1
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
+
+	-- Update streak bar
+	if MegaKill_StreakBar_Start and db.streakBar then
+		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
+	end
 
 	local mk = MULTI_KILL[multiKillCount]
 	if mk then
@@ -169,7 +212,7 @@ local function OnKill(isPlayer)
 				ShowAnnounce(spree.text, spree.r, spree.g, spree.b)
 			end)
 			ChatAnnounce(spree.text)
-			PlayMilestoneSound(3)
+			PlayMilestoneSound(spree.sound)
 		end
 	end
 end
