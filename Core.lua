@@ -47,7 +47,7 @@ local SOUND_PACKS = {
 		-- Multi-kill (single = specific, array = random pool)
 		[1]  = { "first_blood.wav" },
 		[2]  = { "double_kill.wav" },
-		[3]  = { "hat_trick.wav" },
+		[3]  = { "triple_kill.mp3" },
 		[4]  = { "mega_kill.wav" },
 		[5]  = { "mega_kill.wav" },
 		[6]  = { "monster_kill.wav" },
