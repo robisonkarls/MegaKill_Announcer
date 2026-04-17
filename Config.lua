@@ -154,7 +154,37 @@ local function CreateConfigPanel()
 
 	yOffset = yOffset - 8
 
-	-- ── Chat channel dropdown ─────────────────────────────────────────────────
+	-- ── Sound Pack selector ───────────────────────────────────────────────────
+
+	SectionHeader("Sound Pack")
+
+	local soundPackLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	soundPackLabel:SetPoint("TOPLEFT", 20, yOffset)
+	soundPackLabel:SetText("Select announcement sound pack:")
+	yOffset = yOffset - 28
+
+	local soundPacks = { "Unreal_Theme" }
+	local soundPackNames = { Unreal_Theme = "Unreal Tournament" }
+
+	local soundPackDropdown = CreateFrame("Frame", ADDON_NAME .. "_SoundPackDropdown", panel, "UIDropDownMenuTemplate")
+	soundPackDropdown:SetPoint("TOPLEFT", 4, yOffset + 10)
+	UIDropDownMenu_SetWidth(soundPackDropdown, 180)
+
+	UIDropDownMenu_Initialize(soundPackDropdown, function(self, level)
+		for _, pack in ipairs(soundPacks) do
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = soundPackNames[pack] or pack
+			info.checked = (db.soundPack == pack)
+			info.func = function()
+				db.soundPack = pack
+				UIDropDownMenu_SetText(soundPackDropdown, soundPackNames[pack] or pack)
+				CloseDropDownMenus()
+			end
+			UIDropDownMenu_AddButton(info)
+		end
+	end)
+
+	yOffset = yOffset - 40
 
 	SectionHeader("Chat Channel")
 
@@ -183,9 +213,7 @@ local function CreateConfigPanel()
 		end
 	end)
 
-	yOffset = yOffset - 40
-
-	-- ── Kill window slider ────────────────────────────────────────────────────
+	-- ── Chat channel dropdown ────────────────────────────────────────────────
 
 	SectionHeader("Multi-Kill Time Window")
 
@@ -260,6 +288,7 @@ local function CreateConfigPanel()
 		spreeCheck:Refresh()
 		chatCheck:Refresh()
 		streakBarCheck:Refresh()
+		UIDropDownMenu_SetText(soundPackDropdown, soundPackNames[db.soundPack] or db.soundPack)
 		UIDropDownMenu_SetText(channelDropdown, db.chatChannel)
 		windowSlider:SetValue(db.killWindow)
 	end)
