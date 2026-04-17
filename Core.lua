@@ -64,6 +64,12 @@ local SOUND_PACKS = {
 	},
 }
 
+local db
+local playerGUID
+local multiKillCount = 0
+local multiKillTimer = nil
+local spreeCount     = 0
+
 local function GetSound(key)
 	if not db or not db.sound then return nil end
 	local pack = SOUND_PACKS[db.soundPack]
@@ -86,11 +92,6 @@ function MegaKill_PlayMilestoneSound(key)
 	PlayMilestoneSound(key)
 end
 
-local db
-local playerGUID
-local multiKillCount = 0
-local multiKillTimer = nil
-local spreeCount     = 0
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
@@ -170,11 +171,6 @@ local function ChatAnnounce(text)
 	local channel = GetSafeChannel(db.chatChannel)
 	if not channel then return end  -- not in the right situation, skip silently
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
-end
-
--- Export for Config.lua test buttons
-function MegaKill_PlayMilestoneSound(count)
-	PlayMilestoneSound(count)
 end
 
 local function ResetMultiKill()
