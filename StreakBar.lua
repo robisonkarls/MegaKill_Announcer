@@ -3,8 +3,8 @@
 -- how much time they have left to chain the next kill.
 
 local BAR_WIDTH   = 220
-local BAR_HEIGHT  = 14
-local PADDING     = 6
+local BAR_HEIGHT  = 3
+local PADDING     = 4
 
 -- ── Frame setup ───────────────────────────────────────────────────────────────
 
@@ -30,10 +30,10 @@ streakBar:SetScript("OnDragStop",  function(self)
 end)
 streakBar:Hide()
 
--- Background
+-- Background (transparent)
 local bg = streakBar:CreateTexture(nil, "BACKGROUND")
 bg:SetAllPoints()
-bg:SetColorTexture(0, 0, 0, 0.55)
+bg:SetColorTexture(0, 0, 0, 0)
 
 -- Kill count label (left side: "3 Kills")
 local killLabel = streakBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -45,11 +45,11 @@ local timeLabel = streakBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmal
 timeLabel:SetPoint("TOPRIGHT", -PADDING, -PADDING + 1)
 timeLabel:SetTextColor(1, 1, 1, 0.9)
 
--- Bar track (dark background)
+-- Bar track (subtle dark background)
 local track = streakBar:CreateTexture(nil, "BORDER")
 track:SetPoint("TOPLEFT", PADDING, -(PADDING + 16))
 track:SetSize(BAR_WIDTH, BAR_HEIGHT)
-track:SetColorTexture(0.15, 0.15, 0.15, 0.8)
+track:SetColorTexture(0, 0, 0, 0)
 
 -- Bar fill
 local fill = streakBar:CreateTexture(nil, "ARTWORK")
@@ -58,17 +58,7 @@ fill:SetHeight(BAR_HEIGHT)
 fill:SetWidth(BAR_WIDTH)
 fill:SetColorTexture(0.2, 1.0, 0.2, 0.9)  -- starts green
 
--- Thin border around the track
-local border = CreateFrame("Frame", nil, streakBar, "BackdropTemplate")
-border:SetPoint("TOPLEFT",     track, "TOPLEFT",     -1,  1)
-border:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT",  1, -1)
-if border.SetBackdrop then
-	border:SetBackdrop({
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		edgeSize = 6,
-	})
-	border:SetBackdropBorderColor(0, 0, 0, 0.6)
-end
+-- No border needed with transparent container
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 
