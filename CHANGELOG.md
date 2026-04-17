@@ -5,6 +5,28 @@ All notable changes to MegaKill Announcer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-04-17
+
+### Added
+- Streak timer progress bar — shows kill count and countdown timer after each kill
+  - Color shifts green → yellow → red as the window expires
+  - Fades out on window expiry or player death
+  - Draggable, position saved between sessions
+- `.gitignore` — excludes build artifacts, OS files, editor junk
+
+### Fixed
+- `ADDON_ACTION_BLOCKED` — chat messages now queued and sent after combat ends
+- `/mk config` now reliably opens settings panel on Retail 10.0+
+
+### Improved
+- Config UI rebuilt with section headers and hover tooltips
+- Config panel uses `Settings` API on Retail 10.0+, falls back to `InterfaceOptions` on Classic
+- Release workflow now ships only in-game files (no docs/dev files in the zip)
+
+[1.0.1]: https://github.com/robisonkarls/MegaKill_Announcer/releases/tag/v1.0.1
+
+---
+
 ## [1.0.0] - 2026-04-16
 
 ### Added
