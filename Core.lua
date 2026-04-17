@@ -65,7 +65,7 @@ local SOUND_PACKS = {
 }
 
 local function GetSound(key)
-	if not db.sound then return nil end
+	if not db or not db.sound then return nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil end
 	local pool = pack[key]
