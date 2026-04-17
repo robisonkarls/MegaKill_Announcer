@@ -109,20 +109,24 @@ chatFrame:SetScript("OnEvent", function()
 	end
 end)
 
+local function GetSafeChannel(requested)
+	-- Validate that the requested channel is actually available right now
+	if requested == "BATTLEGROUND" then
+		if not UnitInBattleground("player") then return nil end
+	elseif requested == "INSTANCE_CHAT" then
+		if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return nil end
+	elseif requested == "RAID" then
+		if not IsInRaid() then return nil end
+	elseif requested == "PARTY" then
+		if not IsInGroup() then return nil end
+	end
+	return requested
+end
+
 local function ChatAnnounce(text)
 	if not db.chatAnnounce then return end
-	local channel = db.chatChannel or "PARTY"
-	-- SAY/YELL require a hardware event outdoors — not usable from addon code
-	-- Fall back to a safe channel
-	if channel == "SAY" or channel == "YELL" then
-		channel = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT"
-			or IsInRaid() and "RAID"
-			or IsInGroup() and "PARTY"
-			or nil  -- nowhere to send, skip
-	end
-	if channel == "RAID" and not IsInRaid() then channel = "PARTY" end
-	if channel == "PARTY" and not IsInGroup() then channel = nil end
-	if not channel then return end
+	local channel = GetSafeChannel(db.chatChannel)
+	if not channel then return end  -- not in the right situation, skip silently
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
 end
 
