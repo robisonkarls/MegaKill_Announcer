@@ -8,9 +8,10 @@ local DEFAULTS = {
 	chatAnnounce  = false,
 	chatChannel   = "SAY",
 	sound         = true,
-	killWindow    = 15,    -- seconds: kills within this window count as multi-kill
-	onlyPvP       = false, -- if true, only count player kills (Honorable Kills)
+	killWindow    = 15,
+	onlyPvP       = false,
 	spreeAnnounce = true,
+	streakBar     = true,  -- show streak timer bar
 }
 
 -- Multi-kill milestones (kills within killWindow seconds of each other)
@@ -154,7 +155,7 @@ local function OnKill(isPlayer)
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
 
 	-- Update streak bar
-	if MegaKill_StreakBar_Start then
+	if MegaKill_StreakBar_Start and db.streakBar then
 		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
 	end
 

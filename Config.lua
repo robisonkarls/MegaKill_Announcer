@@ -140,6 +140,18 @@ local function CreateConfigPanel()
 		function(val) db.chatAnnounce = val end
 	)
 
+	local streakBarCheck = CreateCheckbox(
+		"Show Streak Timer Bar",
+		"Display a thin progress bar showing how much time you have left to chain the next kill.",
+		function() return db.streakBar end,
+		function(val)
+			db.streakBar = val
+			if MegaKill_StreakBar_SetVisible then
+				MegaKill_StreakBar_SetVisible(val)
+			end
+		end
+	)
+
 	yOffset = yOffset - 8
 
 	-- ── Chat channel dropdown ─────────────────────────────────────────────────
@@ -247,6 +259,7 @@ local function CreateConfigPanel()
 		soundCheck:Refresh()
 		spreeCheck:Refresh()
 		chatCheck:Refresh()
+		streakBarCheck:Refresh()
 		UIDropDownMenu_SetText(channelDropdown, db.chatChannel)
 		windowSlider:SetValue(db.killWindow)
 	end)
