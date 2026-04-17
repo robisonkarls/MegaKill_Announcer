@@ -98,14 +98,15 @@ end
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
--- Queue chat messages and send them out of combat to avoid ADDON_ACTION_BLOCKED
+-- Queue chat messages and send them only when combat ends (PLAYER_REGEN_ENABLED)
 local chatQueue = {}
 local chatFrame = CreateFrame("Frame")
-chatFrame:SetScript("OnUpdate", function()
-	if #chatQueue == 0 then return end
-	if InCombatLockdown() then return end
-	local msg = table.remove(chatQueue, 1)
-	pcall(SendChatMessage, msg.text, msg.channel)
+chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+chatFrame:SetScript("OnEvent", function()
+	while #chatQueue > 0 do
+		local msg = table.remove(chatQueue, 1)
+		SendChatMessage(msg.text, msg.channel)
+	end
 end)
 
 local function ChatAnnounce(text)
