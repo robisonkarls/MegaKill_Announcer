@@ -6,7 +6,7 @@ local DEFAULTS = {
 	enabled       = true,
 	screenAnnounce = true,
 	chatAnnounce  = false,
-	chatChannel   = "SAY",
+	chatChannel   = "PARTY",
 	sound         = true,
 	killWindow    = 15,
 	onlyPvP       = false,
@@ -111,9 +111,18 @@ end)
 
 local function ChatAnnounce(text)
 	if not db.chatAnnounce then return end
-	local channel = db.chatChannel or "SAY"
-	if channel == "PARTY" and not IsInGroup() then channel = "SAY" end
-	if channel == "RAID"  and not IsInRaid()  then channel = "PARTY" end
+	local channel = db.chatChannel or "PARTY"
+	-- SAY/YELL require a hardware event outdoors — not usable from addon code
+	-- Fall back to a safe channel
+	if channel == "SAY" or channel == "YELL" then
+		channel = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT"
+			or IsInRaid() and "RAID"
+			or IsInGroup() and "PARTY"
+			or nil  -- nowhere to send, skip
+	end
+	if channel == "RAID" and not IsInRaid() then channel = "PARTY" end
+	if channel == "PARTY" and not IsInGroup() then channel = nil end
+	if not channel then return end
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
 end
 

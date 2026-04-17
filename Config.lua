@@ -167,7 +167,7 @@ local function CreateConfigPanel()
 	channelDropdown:SetPoint("TOPLEFT", 4, yOffset + 10)
 	UIDropDownMenu_SetWidth(channelDropdown, 160)
 
-	local channels = {"SAY", "YELL", "PARTY", "RAID", "BATTLEGROUND"}
+	local channels = {"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"}
 
 	UIDropDownMenu_Initialize(channelDropdown, function(self, level)
 		for _, ch in ipairs(channels) do
