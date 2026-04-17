@@ -20,10 +20,13 @@ jobs:
           # Create clean package directory
           mkdir -p package/MegaKill_Announcer
           
-          # Copy addon files (excluding git/github files)
-          cp -r Core.lua Config.lua LICENSE README.md assets/ package/MegaKill_Announcer/
+          # Copy only addon files needed in-game
+          cp Core.lua Config.lua StreakBar.lua package/MegaKill_Announcer/
           cp MegaKill_Announcer_Classic.toc package/MegaKill_Announcer/
           cp MegaKill_Announcer_Mainline.toc package/MegaKill_Announcer/
+          cp -r assets/ package/MegaKill_Announcer/
+          cp LICENSE package/MegaKill_Announcer/
+          # Excluded: README.md, CHANGELOG.md, PUBLISHING.md, DEPLOYMENT.md, .github/, .pkgmeta, push.sh
           
           # Create zip from package directory
           cd package
