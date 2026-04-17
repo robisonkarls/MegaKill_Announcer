@@ -2,8 +2,8 @@ name: Release to CurseForge
 
 on:
   push:
-    tags:
-      - 'v*'  # Triggers on version tags like v1.0.0, v1.1.0, etc.
+    branches:
+      - main  # Triggers only on merges/pushes to main
 
 jobs:
   release:
@@ -38,28 +38,24 @@ jobs:
           # Verify zip was created
           ls -lh MegaKill_Announcer.zip
       
-      - name: Get version from tag
+      - name: Get version from TOC
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(grep '^## Version:' MegaKill_Announcer_Mainline.toc | awk '{print $3}')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
       
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # If CHANGELOG.md exists, extract this version's changes
+          VERSION=$(grep '^## Version:' MegaKill_Announcer_Mainline.toc | awk '{print $3}')
           if [ -f "CHANGELOG.md" ]; then
-            # Extract section for this version
-            VERSION="${GITHUB_REF#refs/tags/v}"
             CHANGELOG=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
-            
-            # Fallback if extraction fails
             if [ -z "$CHANGELOG" ]; then
               CHANGELOG="Release ${VERSION}"
             fi
           else
-            CHANGELOG="Release ${GITHUB_REF#refs/tags/v}"
+            CHANGELOG="Release ${VERSION}"
           fi
-          
-          # Set multiline output
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -80,6 +76,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
           files: MegaKill_Announcer.zip
           body: ${{ steps.changelog.outputs.CHANGELOG }}
           draft: false
