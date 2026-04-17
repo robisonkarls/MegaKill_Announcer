@@ -2,8 +2,8 @@ name: Release to CurseForge
 
 on:
   push:
-    branches:
-      - main  # Triggers only on merges/pushes to main
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v1.1.0, etc.
 
 jobs:
   release:
@@ -38,16 +38,14 @@ jobs:
           # Verify zip was created
           ls -lh MegaKill_Announcer.zip
       
-      - name: Get version from TOC
+      - name: Get version from tag
         id: get_version
-        run: |
-          VERSION=$(grep '^## Version:' MegaKill_Announcer_Mainline.toc | awk '{print $3}')
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       
       - name: Extract changelog for this version
         id: changelog
         run: |
-          VERSION=$(grep '^## Version:' MegaKill_Announcer_Mainline.toc | awk '{print $3}')
+          VERSION="${GITHUB_REF#refs/tags/v}"
           if [ -f "CHANGELOG.md" ]; then
             CHANGELOG=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
             if [ -z "$CHANGELOG" ]; then
@@ -76,7 +74,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.get_version.outputs.VERSION }}
           files: MegaKill_Announcer.zip
           body: ${{ steps.changelog.outputs.CHANGELOG }}
           draft: false
