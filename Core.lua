@@ -44,23 +44,23 @@ local KILLING_SPREE = {
 
 local SOUND_PACKS = {
 	Unreal_Theme = {
-		-- Multi-kill
-		[1]  = "first_blood.wav",
-		[2]  = "hat_trick.wav",      -- Double Kill (UT hat trick feel)
-		[3]  = "hat_trick.wav",      -- Triple Kill
-		[4]  = "mega_kill.wav",
-		[5]  = "mega_kill.wav",
-		[6]  = "monster_kill.wav",
-		[7]  = "ultra_kill.wav",
-		[8]  = "ludicrous_kill.wav",
-		[9]  = "holy_shit.wav",
+		-- Multi-kill (arrays = random pick each time)
+		[1]  = { "first_blood.wav" },
+		[2]  = { "hat_trick.wav", "ownage.wav" },
+		[3]  = { "hat_trick.wav", "ownage.wav" },
+		[4]  = { "mega_kill.wav" },
+		[5]  = { "mega_kill.wav" },
+		[6]  = { "monster_kill.wav" },
+		[7]  = { "ultra_kill.wav" },
+		[8]  = { "ludicrous_kill.wav", "ownage.wav" },
+		[9]  = { "holy_shit.wav", "ownage.wav" },
 		-- Killing spree
-		Killing_Spree = "killing_spree.wav",
-		Rampage       = "rampage.wav",
-		Unstoppable   = "unstoppable.wav",
-		Dominating    = "dominating.wav",
-		Godlike       = "godlike.wav",
-		Wicked_Sick   = "wicked_sick.wav",
+		Killing_Spree = { "killing_spree.wav" },
+		Rampage       = { "rampage.wav" },
+		Unstoppable   = { "unstoppable.wav" },
+		Dominating    = { "dominating.wav" },
+		Godlike       = { "godlike.wav" },
+		Wicked_Sick   = { "wicked_sick.wav" },
 	},
 }
 
@@ -68,8 +68,9 @@ local function GetSound(key)
 	if not db.sound then return nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil end
-	local file = pack[key]
-	if not file then return nil end
+	local pool = pack[key]
+	if not pool or #pool == 0 then return nil end
+	local file = pool[math.random(#pool)]
 	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file
 end
 
