@@ -8,10 +8,11 @@ local DEFAULTS = {
 	chatAnnounce  = false,
 	chatChannel   = "PARTY",
 	sound         = true,
+	soundPack     = "Unreal_Theme",  -- default sound pack
 	killWindow    = 15,
 	onlyPvP       = false,
 	spreeAnnounce = true,
-	streakBar     = true,  -- show streak timer bar
+	streakBar     = true,
 }
 
 -- Multi-kill milestones (kills within killWindow seconds of each other)
@@ -29,20 +30,60 @@ local MULTI_KILL = {
 
 -- Killing spree milestones (player kills without dying)
 local KILLING_SPREE = {
-	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0 },
-	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0 },
-	[15] = { text = "Unstoppable!",   r = 1.0, g = 0.2, b = 0.0 },
-	[20] = { text = "Dominating!",    r = 0.6, g = 0.0, b = 1.0 },
-	[25] = { text = "Godlike!",       r = 0.0, g = 0.8, b = 1.0 },
-	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0 },
+	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0, sound = "Killing_Spree" },
+	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0, sound = "Rampage"       },
+	[15] = { text = "Unstoppable!",   r = 1.0, g = 0.2, b = 0.0, sound = "Unstoppable"   },
+	[20] = { text = "Dominating!",    r = 0.6, g = 0.0, b = 1.0, sound = "Dominating"    },
+	[25] = { text = "Godlike!",       r = 0.0, g = 0.8, b = 1.0, sound = "Godlike"       },
+	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0, sound = "Wicked_Sick"   },
 }
 
-local SOUNDS = {
-	[2] = "Interface\\AddOns\\MegaKill_Announcer\\assets\\doublekill.mp3",
-	[3] = "Interface\\AddOns\\MegaKill_Announcer\\assets\\triplekill.mp3",
-	[4] = 8174,
-	[5] = 8174,
+-- ── Sound packs ──────────────────────────────────────────────────────────────
+-- Each pack maps event keys to file names inside assets/<packName>/
+-- Keys: multi-kill counts (1-9) and spree milestone names
+
+local SOUND_PACKS = {
+	Unreal_Theme = {
+		-- Multi-kill
+		[1]  = "first_blood.wav",
+		[2]  = "hat_trick.wav",      -- Double Kill (UT hat trick feel)
+		[3]  = "hat_trick.wav",      -- Triple Kill
+		[4]  = "mega_kill.wav",
+		[5]  = "mega_kill.wav",
+		[6]  = "monster_kill.wav",
+		[7]  = "ultra_kill.wav",
+		[8]  = "ludicrous_kill.wav",
+		[9]  = "holy_shit.wav",
+		-- Killing spree
+		Killing_Spree = "killing_spree.wav",
+		Rampage       = "rampage.wav",
+		Unstoppable   = "unstoppable.wav",
+		Dominating    = "dominating.wav",
+		Godlike       = "godlike.wav",
+		Wicked_Sick   = "wicked_sick.wav",
+	},
 }
+
+local function GetSound(key)
+	if not db.sound then return nil end
+	local pack = SOUND_PACKS[db.soundPack]
+	if not pack then return nil end
+	local file = pack[key]
+	if not file then return nil end
+	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file
+end
+
+local function PlayMilestoneSound(key)
+	local sound = GetSound(key)
+	if sound then
+		PlaySoundFile(sound, "Master")
+	end
+end
+
+-- Export for Config.lua test buttons
+function MegaKill_PlayMilestoneSound(key)
+	PlayMilestoneSound(key)
+end
 
 local db
 local playerGUID
@@ -190,7 +231,7 @@ local function OnKill(isPlayer)
 				ShowAnnounce(spree.text, spree.r, spree.g, spree.b)
 			end)
 			ChatAnnounce(spree.text)
-			PlayMilestoneSound(3)
+			PlayMilestoneSound(spree.sound)
 		end
 	end
 end
