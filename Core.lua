@@ -44,10 +44,10 @@ local KILLING_SPREE = {
 
 local SOUND_PACKS = {
 	Unreal_Theme = {
-		-- Multi-kill (arrays = random pick each time)
+		-- Multi-kill (single = specific, array = random pool)
 		[1]  = { "first_blood.wav" },
-		[2]  = { "hat_trick.wav", "ownage.wav" },
-		[3]  = { "hat_trick.wav", "ownage.wav" },
+		[2]  = { "hat_trick.wav" },
+		[3]  = { "hat_trick.wav" },
 		[4]  = { "mega_kill.wav" },
 		[5]  = { "mega_kill.wav" },
 		[6]  = { "monster_kill.wav" },
