@@ -90,6 +90,11 @@ local function ShowAnnounce(text, r, g, b)
 	end)
 end
 
+-- Export for Config.lua test buttons
+function MegaKill_ShowAnnounce(text, r, g, b)
+	ShowAnnounce(text, r, g, b)
+end
+
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
 local function ChatAnnounce(text)
@@ -114,6 +119,11 @@ local function PlayMilestoneSound(count)
 	else
 		PlaySound(sound, "Master")
 	end
+end
+
+-- Export for Config.lua test buttons
+function MegaKill_PlayMilestoneSound(count)
+	PlayMilestoneSound(count)
 end
 
 local function ResetMultiKill()
@@ -255,6 +265,14 @@ SlashCmdList["MEGAKILL"] = function(msg)
 			print(PREFIX .. ": Use /mk test 2 (Double Kill), /mk test 3 (Triple Kill), /mk test 4 (Monster Kill)")
 		end
 
+	elseif msg == "config" then
+		if InterfaceOptionsFrame_OpenToCategory then
+			InterfaceOptionsFrame_OpenToCategory("MegaKill Announcer")
+			InterfaceOptionsFrame_OpenToCategory("MegaKill Announcer") -- Call twice for retail bug
+		elseif Settings and Settings.OpenToCategory then
+			Settings.OpenToCategory("MegaKill Announcer")
+		end
+
 	elseif msg == "status" then
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
@@ -267,6 +285,7 @@ SlashCmdList["MEGAKILL"] = function(msg)
 	else
 		print(PREFIX .. " |cffffd700Commands:|r")
 		print("  /mk            — Toggle on/off")
+		print("  /mk config     — Open settings UI")
 		print("  /mk screen     — Toggle screen text")
 		print("  /mk chat       — Toggle chat announcements")
 		print("  /mk sound      — Toggle sounds")

@@ -6,3 +6,4 @@
 ## SavedVariables: MegaKill_Config
 
 Core.lua
+Config.lua

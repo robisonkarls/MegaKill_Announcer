@@ -1,0 +1,83 @@
+name: Release to CurseForge
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v1.1.0, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+      
+      - name: Create addon package
+        run: |
+          # Create clean package directory
+          mkdir -p package/MegaKill_Announcer
+          
+          # Copy addon files (excluding git/github files)
+          cp -r Core.lua Config.lua LICENSE README.md assets/ package/MegaKill_Announcer/
+          cp MegaKill_Announcer_Classic.toc package/MegaKill_Announcer/
+          cp MegaKill_Announcer_Mainline.toc package/MegaKill_Announcer/
+          
+          # Create zip from package directory
+          cd package
+          zip -r ../MegaKill_Announcer.zip MegaKill_Announcer/
+          cd ..
+          
+          # Verify zip was created
+          ls -lh MegaKill_Announcer.zip
+      
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # If CHANGELOG.md exists, extract this version's changes
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract section for this version
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            CHANGELOG=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+            
+            # Fallback if extraction fails
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="Release ${VERSION}"
+            fi
+          else
+            CHANGELOG="Release ${GITHUB_REF#refs/tags/v}"
+          fi
+          
+          # Set multiline output
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Upload to CurseForge
+        uses: itsmeow/curseforge-upload@v3
+        with:
+          token: ${{ secrets.CF_API_TOKEN }}
+          project_id: ${{ secrets.CF_PROJECT_ID }}
+          game_endpoint: wow
+          file_path: MegaKill_Announcer.zip
+          changelog: ${{ steps.changelog.outputs.CHANGELOG }}
+          changelog_type: markdown
+          display_name: MegaKill Announcer v${{ steps.get_version.outputs.VERSION }}
+          game_versions: 11403,120001  # Classic Era 1.14.3, Retail 12.0.0.1
+          release_type: release
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: MegaKill_Announcer.zip
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

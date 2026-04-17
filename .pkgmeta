@@ -1,0 +1,21 @@
+package-as: MegaKill_Announcer
+
+enable-nolib-creation: no
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - .github
+  - .git
+  - .gitignore
+  - .gitattributes
+  - PUBLISHING.md
+  - "*.md~"
+  - "*.bak"
+
+license-output: LICENSE
+
+# Optional: Embed version from tag into TOC files
+# enable-toc-creation: yes
