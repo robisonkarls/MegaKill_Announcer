@@ -266,11 +266,10 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		end
 
 	elseif msg == "config" then
-		if InterfaceOptionsFrame_OpenToCategory then
-			InterfaceOptionsFrame_OpenToCategory("MegaKill Announcer")
-			InterfaceOptionsFrame_OpenToCategory("MegaKill Announcer") -- Call twice for retail bug
-		elseif Settings and Settings.OpenToCategory then
-			Settings.OpenToCategory("MegaKill Announcer")
+		if MegaKill_OpenConfig then
+			MegaKill_OpenConfig()
+		else
+			print(PREFIX .. ": Config UI not loaded yet, try again.")
 		end
 
 	elseif msg == "status" then

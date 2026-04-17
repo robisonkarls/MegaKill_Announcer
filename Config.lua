@@ -3,215 +3,269 @@
 local ADDON_NAME = "MegaKill_Announcer"
 local PREFIX = "|cffff7d0aMegaKill|r"
 
--- Wait for addon to load
+local configPanel = nil
+local configCategory = nil -- Retail 10.0+
+
+-- ── Open the config panel ─────────────────────────────────────────────────────
+
+function MegaKill_OpenConfig()
+	if configCategory then
+		-- Retail 10.0+ (Settings API)
+		Settings.OpenToCategory(configCategory:GetID())
+	elseif InterfaceOptionsFrame_OpenToCategory then
+		-- Classic / pre-10.0 Retail
+		InterfaceOptionsFrame_OpenToCategory(configPanel)
+		InterfaceOptionsFrame_OpenToCategory(configPanel) -- Double call fixes scroll bug
+	end
+end
+
+-- ── Build the panel ───────────────────────────────────────────────────────────
+
 local function CreateConfigPanel()
-	-- Get the saved config reference
 	local db = MegaKill_Config
 	if not db then
 		C_Timer.After(0.5, CreateConfigPanel)
 		return
 	end
 
-	-- Main panel frame
-	local panel = CreateFrame("Frame", ADDON_NAME .. "_ConfigPanel")
+	local panel = CreateFrame("Frame", ADDON_NAME .. "_ConfigPanel", UIParent)
 	panel.name = "MegaKill Announcer"
+	configPanel = panel
 
-	-- Title
+	-- ── Header ────────────────────────────────────────────────────────────────
+
 	local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 16, -16)
-	title:SetText("|cffff7d0aMegaKill Announcer|r Settings")
+	title:SetText("|cffff7d0a⚔ MegaKill Announcer|r")
 
-	-- Version
-	local version = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-	version:SetText("|cff888888Version 1.0|r")
+	local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0|r")
 
-	-- Divider
 	local divider = panel:CreateTexture(nil, "ARTWORK")
 	divider:SetHeight(1)
-	divider:SetPoint("TOPLEFT", version, "BOTTOMLEFT", 0, -8)
-	divider:SetPoint("RIGHT", -16, 0)
-	divider:SetColorTexture(0.25, 0.25, 0.25, 1)
+	divider:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -10)
+	divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, 0)
+	divider:SetColorTexture(0.3, 0.3, 0.3, 1)
 
-	local yOffset = -80
+	-- ── Section header helper ─────────────────────────────────────────────────
 
-	-- Helper function to create checkboxes
-	local function CreateCheckbox(parent, label, tooltip, onClick)
-		-- Try retail template first, fallback to classic
-		local template = "InterfaceOptionsCheckButtonTemplate"
-		if not _G[template] then
-			template = "OptionsCheckButtonTemplate" -- Classic fallback
-		end
-		
-		local check = CreateFrame("CheckButton", nil, parent, template)
-		check:SetPoint("TOPLEFT", 16, yOffset)
-		
-		-- Handle both .Text (retail) and .text (classic) properties
-		local text = check.Text or check.text
-		if text then
-			text:SetText(label)
-		end
-		
+	local yOffset = -85
+	local function SectionHeader(text)
+		local lbl = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		lbl:SetPoint("TOPLEFT", 16, yOffset)
+		lbl:SetText("|cffffd700" .. text .. "|r")
+		yOffset = yOffset - 24
+		return lbl
+	end
+
+	-- ── Checkbox helper ───────────────────────────────────────────────────────
+
+	local function CreateCheckbox(label, tooltip, getter, setter)
+		local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+		check:SetPoint("TOPLEFT", 20, yOffset)
+		check:SetSize(24, 24)
+
+		local lbl = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
+		lbl:SetText(label)
+
 		check.tooltipText = tooltip
-		check:SetScript("OnClick", onClick)
+		check:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetText(tooltip, nil, nil, nil, nil, true)
+			GameTooltip:Show()
+		end)
+		check:SetScript("OnLeave", function() GameTooltip:Hide() end)
+		check:SetScript("OnClick", function(self)
+			setter(self:GetChecked())
+		end)
+
+		-- Refresh function
+		check.Refresh = function() check:SetChecked(getter()) end
+
 		yOffset = yOffset - 30
 		return check
 	end
 
-	-- Enabled checkbox
-	local enabledCheck = CreateCheckbox(panel, "Enable Addon", "Turn the addon on/off", function(self)
-		db.enabled = self:GetChecked()
-		print(PREFIX .. ": " .. (db.enabled and "|cff00ff00Enabled|r" or "|cffff0000Disabled|r"))
-	end)
+	-- ── General section ───────────────────────────────────────────────────────
 
-	-- Screen announce checkbox
-	local screenCheck = CreateCheckbox(panel, "Show On-Screen Text", "Display large text in the center of your screen", function(self)
-		db.screenAnnounce = self:GetChecked()
-	end)
+	SectionHeader("General")
 
-	-- Chat announce checkbox
-	local chatCheck = CreateCheckbox(panel, "Announce in Chat", "Broadcast announcements to a chat channel", function(self)
-		db.chatAnnounce = self:GetChecked()
-	end)
+	local enabledCheck = CreateCheckbox(
+		"Enable Addon",
+		"Turn MegaKill Announcer on or off.",
+		function() return db.enabled end,
+		function(val) db.enabled = val end
+	)
 
-	-- Sound checkbox
-	local soundCheck = CreateCheckbox(panel, "Play Sounds", "Play audio cues for multi-kills", function(self)
-		db.sound = self:GetChecked()
-	end)
+	local pvpCheck = CreateCheckbox(
+		"PvP Kills Only  (Honorable Kills)",
+		"Only track player kills. Disabling this counts all kills including mobs.",
+		function() return db.onlyPvP end,
+		function(val) db.onlyPvP = val end
+	)
 
-	-- PvP-only checkbox
-	local pvpCheck = CreateCheckbox(panel, "PvP Kills Only", "Only track Honorable Kills (player kills)", function(self)
-		db.onlyPvP = self:GetChecked()
-	end)
+	yOffset = yOffset - 8
 
-	-- Spree announce checkbox
-	local spreeCheck = CreateCheckbox(panel, "Announce Killing Sprees", "Announce milestone kill counts without dying", function(self)
-		db.spreeAnnounce = self:GetChecked()
-	end)
+	-- ── Announcements section ─────────────────────────────────────────────────
 
-	yOffset = yOffset - 10
+	SectionHeader("Announcements")
 
-	-- Chat channel dropdown
-	local channelLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	channelLabel:SetPoint("TOPLEFT", 16, yOffset)
-	channelLabel:SetText("Chat Channel:")
-	yOffset = yOffset - 30
+	local screenCheck = CreateCheckbox(
+		"Show On-Screen Text",
+		"Display large coloured text in the centre of your screen on each kill.",
+		function() return db.screenAnnounce end,
+		function(val) db.screenAnnounce = val end
+	)
+
+	local soundCheck = CreateCheckbox(
+		"Play Sound Effects",
+		"Play audio cues for Double Kill, Triple Kill, Monster Kill, etc.",
+		function() return db.sound end,
+		function(val) db.sound = val end
+	)
+
+	local spreeCheck = CreateCheckbox(
+		"Announce Killing Sprees",
+		"Announce milestone kill counts (Killing Spree, Rampage, Godlike…) without dying.",
+		function() return db.spreeAnnounce end,
+		function(val) db.spreeAnnounce = val end
+	)
+
+	local chatCheck = CreateCheckbox(
+		"Broadcast to Chat",
+		"Send kill announcements to a chat channel.",
+		function() return db.chatAnnounce end,
+		function(val) db.chatAnnounce = val end
+	)
+
+	yOffset = yOffset - 8
+
+	-- ── Chat channel dropdown ─────────────────────────────────────────────────
+
+	SectionHeader("Chat Channel")
+
+	local channelLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	channelLabel:SetPoint("TOPLEFT", 20, yOffset)
+	channelLabel:SetText("Broadcast kills to:")
+	yOffset = yOffset - 28
 
 	local channelDropdown = CreateFrame("Frame", ADDON_NAME .. "_ChannelDropdown", panel, "UIDropDownMenuTemplate")
-	channelDropdown:SetPoint("TOPLEFT", 0, yOffset + 15)
+	channelDropdown:SetPoint("TOPLEFT", 4, yOffset + 10)
+	UIDropDownMenu_SetWidth(channelDropdown, 160)
 
 	local channels = {"SAY", "YELL", "PARTY", "RAID", "BATTLEGROUND"}
-	
-	UIDropDownMenu_SetWidth(channelDropdown, 150)
-	UIDropDownMenu_SetText(channelDropdown, db.chatChannel)
 
 	UIDropDownMenu_Initialize(channelDropdown, function(self, level)
-		local info = UIDropDownMenu_CreateInfo()
-		for _, channel in ipairs(channels) do
-			info.text = channel
+		for _, ch in ipairs(channels) do
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = ch
+			info.checked = (db.chatChannel == ch)
 			info.func = function()
-				db.chatChannel = channel
-				UIDropDownMenu_SetText(channelDropdown, channel)
+				db.chatChannel = ch
+				UIDropDownMenu_SetText(channelDropdown, ch)
 				CloseDropDownMenus()
 			end
-			info.checked = (db.chatChannel == channel)
 			UIDropDownMenu_AddButton(info)
 		end
 	end)
 
 	yOffset = yOffset - 40
 
-	-- Kill window slider
-	local windowLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	windowLabel:SetPoint("TOPLEFT", 16, yOffset)
-	windowLabel:SetText("Multi-Kill Time Window:")
-	yOffset = yOffset - 30
+	-- ── Kill window slider ────────────────────────────────────────────────────
+
+	SectionHeader("Multi-Kill Time Window")
+
+	local windowNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	windowNote:SetPoint("TOPLEFT", 20, yOffset)
+	windowNote:SetText("Kills within this window chain together (e.g. Double Kill, Triple Kill…)")
+	yOffset = yOffset - 28
 
 	local windowSlider = CreateFrame("Slider", ADDON_NAME .. "_WindowSlider", panel, "OptionsSliderTemplate")
-	windowSlider:SetPoint("TOPLEFT", 16, yOffset)
+	windowSlider:SetPoint("TOPLEFT", 20, yOffset)
+	windowSlider:SetWidth(300)
 	windowSlider:SetMinMaxValues(5, 60)
-	windowSlider:SetValue(db.killWindow)
 	windowSlider:SetValueStep(1)
 	windowSlider:SetObeyStepOnDrag(true)
-	windowSlider:SetWidth(300)
-	
-	-- Compatible with both Classic and Retail
-	local sliderName = windowSlider:GetName()
-	local lowText = _G[sliderName .. "Low"] or getglobal(sliderName .. "Low")
-	local highText = _G[sliderName .. "High"] or getglobal(sliderName .. "High")
-	local valueText = _G[sliderName .. "Text"] or getglobal(sliderName .. "Text")
-	
-	if lowText then lowText:SetText("5s") end
-	if highText then highText:SetText("60s") end
-	if valueText then valueText:SetText(db.killWindow .. " seconds") end
+	windowSlider:SetValue(db.killWindow)
+
+	local sn = windowSlider:GetName()
+	if _G[sn .. "Low"]  then _G[sn .. "Low"]:SetText("5s")  end
+	if _G[sn .. "High"] then _G[sn .. "High"]:SetText("60s") end
+
+	local windowValue = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	windowValue:SetPoint("LEFT", windowSlider, "RIGHT", 12, 0)
+	windowValue:SetText(db.killWindow .. " sec")
 
 	windowSlider:SetScript("OnValueChanged", function(self, value)
 		value = math.floor(value + 0.5)
 		db.killWindow = value
-		local txt = _G[self:GetName() .. "Text"] or getglobal(self:GetName() .. "Text")
-		if txt then txt:SetText(value .. " seconds") end
+		windowValue:SetText(value .. " sec")
 	end)
 
-	yOffset = yOffset - 60
+	yOffset = yOffset - 55
 
-	-- Test buttons section
-	local testLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	testLabel:SetPoint("TOPLEFT", 16, yOffset)
-	testLabel:SetText("Test Announcements:")
-	yOffset = yOffset - 35
+	-- ── Test buttons ──────────────────────────────────────────────────────────
 
-	local function CreateTestButton(parent, text, testIndex, xPos)
-		local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	SectionHeader("Preview Announcements")
+
+	local previewNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	previewNote:SetPoint("TOPLEFT", 20, yOffset)
+	previewNote:SetText("Click to preview an announcement on screen:")
+	yOffset = yOffset - 30
+
+	local tests = {
+		{ label = "Double Kill",  idx = 2, text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
+		{ label = "Triple Kill",  idx = 3, text = "Triple Kill!",  r = 1.0, g = 0.5, b = 0.0 },
+		{ label = "Monster Kill", idx = 6, text = "Monster Kill!", r = 0.6, g = 0.0, b = 1.0 },
+	}
+
+	local xPos = 20
+	for _, t in ipairs(tests) do
+		local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 		btn:SetPoint("TOPLEFT", xPos, yOffset)
-		btn:SetSize(120, 25)
-		btn:SetText(text)
+		btn:SetSize(130, 26)
+		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
-			-- Call the test function from Core.lua
-			local MULTI_KILL = {
-				[2] = { text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
-				[3] = { text = "Triple Kill!",  r = 1.0, g = 0.5, b = 0.0 },
-				[6] = { text = "Monster Kill!", r = 0.6, g = 0.0, b = 1.0 },
-			}
-			local mk = MULTI_KILL[testIndex]
-			if mk and MegaKill_ShowAnnounce then
-				MegaKill_ShowAnnounce(mk.text, mk.r, mk.g, mk.b)
-				if MegaKill_PlayMilestoneSound then
-					MegaKill_PlayMilestoneSound(testIndex)
-				end
+			if MegaKill_ShowAnnounce then
+				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b)
+			end
+			if MegaKill_PlayMilestoneSound then
+				MegaKill_PlayMilestoneSound(t.idx)
 			end
 		end)
-		return btn
+		xPos = xPos + 140
 	end
 
-	CreateTestButton(panel, "Double Kill", 2, 16)
-	CreateTestButton(panel, "Triple Kill", 3, 150)
-	CreateTestButton(panel, "Monster Kill", 6, 284)
+	-- ── Refresh all controls on show ──────────────────────────────────────────
 
-	-- OnShow: refresh checkboxes from current config
 	panel:SetScript("OnShow", function()
-		enabledCheck:SetChecked(db.enabled)
-		screenCheck:SetChecked(db.screenAnnounce)
-		chatCheck:SetChecked(db.chatAnnounce)
-		soundCheck:SetChecked(db.sound)
-		pvpCheck:SetChecked(db.onlyPvP)
-		spreeCheck:SetChecked(db.spreeAnnounce)
+		enabledCheck:Refresh()
+		pvpCheck:Refresh()
+		screenCheck:Refresh()
+		soundCheck:Refresh()
+		spreeCheck:Refresh()
+		chatCheck:Refresh()
 		UIDropDownMenu_SetText(channelDropdown, db.chatChannel)
 		windowSlider:SetValue(db.killWindow)
 	end)
 
-	-- Register with Interface Options
-	if InterfaceOptions_AddCategory then
-		InterfaceOptions_AddCategory(panel)
-	elseif Settings and Settings.RegisterCanvasLayoutCategory then
-		-- Retail 10.0+ API
-		local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
-		Settings.RegisterAddOnCategory(category)
-	end
+	-- ── Register panel ────────────────────────────────────────────────────────
 
-	print(PREFIX .. " configuration UI loaded. Type |cffffd700/mk config|r or check Interface Options.")
+	if Settings and Settings.RegisterCanvasLayoutCategory then
+		-- Retail 10.0+
+		local cat = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+		Settings.RegisterAddOnCategory(cat)
+		configCategory = cat
+	elseif InterfaceOptions_AddCategory then
+		-- Classic / pre-10.0
+		InterfaceOptions_AddCategory(panel)
+	end
 end
 
--- Hook into PLAYER_LOGIN
+-- ── Bootstrap ─────────────────────────────────────────────────────────────────
+
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:SetScript("OnEvent", function()
