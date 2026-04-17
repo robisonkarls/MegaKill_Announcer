@@ -1,17 +1,23 @@
-# macOS
-.DS_Store
+# Build artifacts
+*.zip
+package/
 
-# Editor
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.bak
+*.orig
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
 
-# Temp files
-*.bak
-*.tmp
+# Lua dev tools
+luac.out
+*.luac
 
-# User config (optional)
-# MegaKill_Config.lua
-
-# Build artifacts
-*.zip
+# WoW generated files
+WTF/
