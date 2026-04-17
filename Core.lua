@@ -97,12 +97,22 @@ end
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
+-- Queue chat messages and send them out of combat to avoid ADDON_ACTION_BLOCKED
+local chatQueue = {}
+local chatFrame = CreateFrame("Frame")
+chatFrame:SetScript("OnUpdate", function()
+	if #chatQueue == 0 then return end
+	if InCombatLockdown() then return end
+	local msg = table.remove(chatQueue, 1)
+	pcall(SendChatMessage, msg.text, msg.channel)
+end)
+
 local function ChatAnnounce(text)
 	if not db.chatAnnounce then return end
 	local channel = db.chatChannel or "SAY"
 	if channel == "PARTY" and not IsInGroup() then channel = "SAY" end
 	if channel == "RAID"  and not IsInRaid()  then channel = "PARTY" end
-	pcall(SendChatMessage, "[MegaKill] " .. text, channel)
+	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
 end
 
 local function PlayMilestoneSound(count)
