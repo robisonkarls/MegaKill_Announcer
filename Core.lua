@@ -139,6 +139,7 @@ end
 local function ResetMultiKill()
 	multiKillCount = 0
 	multiKillTimer = nil
+	if MegaKill_StreakBar_Reset then MegaKill_StreakBar_Reset() end
 end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
@@ -151,6 +152,11 @@ local function OnKill(isPlayer)
 	if multiKillTimer then multiKillTimer:Cancel() end
 	multiKillCount = multiKillCount + 1
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
+
+	-- Update streak bar
+	if MegaKill_StreakBar_Start then
+		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
+	end
 
 	local mk = MULTI_KILL[multiKillCount]
 	if mk then

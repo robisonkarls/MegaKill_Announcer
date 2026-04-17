@@ -6,4 +6,5 @@
 ## SavedVariables: MegaKill_Config
 
 Core.lua
+StreakBar.lua
 Config.lua
