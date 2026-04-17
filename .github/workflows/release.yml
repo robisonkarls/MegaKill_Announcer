@@ -72,7 +72,7 @@ jobs:
           changelog: ${{ steps.changelog.outputs.CHANGELOG }}
           changelog_type: markdown
           display_name: MegaKill Announcer v${{ steps.get_version.outputs.VERSION }}
-          game_versions: 1.14.3,12.0.5  # Classic Era 1.14.3, Retail 12.0.5
+          game_versions: 1.15.8,12.0.5  # Classic Era 1.15.8, Retail 12.0.5
           release_type: release
       
       - name: Create GitHub Release
