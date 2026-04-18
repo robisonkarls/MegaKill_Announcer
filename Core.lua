@@ -8,11 +8,12 @@ MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
 MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")    -- Classic; ignored on Retail via IS_RETAIL guard
--- UNIT_DIED is Retail 12.0+ only — registered after PLAYER_LOGIN confirms version
+-- Version check at file scope (before any callback)
 local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 if IS_RETAIL_PRECHECK then
-	MK_Frame:RegisterEvent("UNIT_DIED")
+	MK_Frame:RegisterEvent("UNIT_DIED")                   -- Retail 12.0+: replaces CLEU
+else
+	MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED") -- Classic only
 end
 
 -- Default settings
