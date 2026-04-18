@@ -137,6 +137,7 @@ local function GetSound(key)
 		return nil, nil  -- no spree slots in simple mode
 	end
 	local pool = pack[key]
+	print("|cffff9900MegaKill DEBUG GetSound:|r pack=" .. tostring(db.soundPack) .. " key=" .. tostring(key) .. " pool=" .. tostring(pool) .. " poolsize=" .. (pool and tostring(#pool) or "nil"))
 	if not pool or #pool == 0 then return nil, nil end
 	local file = pool[math.random(#pool)]
 	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
