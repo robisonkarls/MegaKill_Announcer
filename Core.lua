@@ -66,6 +66,18 @@ local SOUND_PACKS = {
 		Godlike       = { "godlike.wav" },
 		Wicked_Sick   = { "wicked_sick.wav" },
 	},
+	Flamboyant_theme = {
+		-- Use filename as announce text, render in rainbow colors
+		displayName = true,
+		rainbow     = true,
+		-- Simple 5-slot mode: kill count capped at 5, no spree tracking
+		simpleSlots = true,
+		[1] = { "CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav" },
+		[2] = { "Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav" },
+		[3] = { "Fabulous.wav", "Home_Wracker.wav", "Hoooo_Noooo.wav", "Machooowav.wav" },
+		[4] = { "Super_Star.wav", "rainbow_warrior.wav", "CANT_TOUCH_THIS.wav", "big_bear.wav" },
+		[5] = { "Unicorn_Stampeeede.wav", "Homecidal.wav", "Like_Oh_EME_Jay.wav", "Domination.wav", "diva.wav", "YaaaaaYyy.wav" },
+	},
 }
 
 -- State
@@ -77,16 +89,53 @@ local spreeCount     = 0
 local IS_RETAIL      = false
 local PLAYER_TYPE_FLAG = 0x400
 
+-- Text helpers
+
+-- "CHERRY_POPPAH.wav" -> "Cherry Poppah"
+local function FileToDisplayName(filename)
+	local name = filename:match("^(.+)%..+$") or filename
+	name = name:gsub("_", " ")
+	name = name:gsub("(%a)([%w_']*)", function(first, rest)
+		return first:upper() .. rest:lower()
+	end)
+	return name
+end
+
+-- Wrap each character in a cycling rainbow color
+local RAINBOW = {
+	"|cffff0000", "|cffff7f00", "|cffffff00",
+	"|cff00ff00", "|cff0000ff", "|cff8b00ff",
+}
+local function RainbowText(text)
+	local out = ""
+	local ci = 1
+	for char in text:gmatch(".") do
+		if char == " " then
+			out = out .. " "
+		else
+			out = out .. RAINBOW[ci] .. char .. "|r"
+			ci = ci % #RAINBOW + 1
+		end
+	end
+	return out
+end
+
 -- ── Sound ─────────────────────────────────────────────────────────────────────
 
 local function GetSound(key)
-	if not db or not db.sound then return nil end
+	if not db or not db.sound then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
-	if not pack then return nil end
+	if not pack then return nil, nil end
+	-- simpleSlots: cap numeric keys at 5, ignore spree string keys
+	if pack.simpleSlots and type(key) == "number" then
+		key = math.min(key, 5)
+	elseif pack.simpleSlots and type(key) == "string" then
+		return nil, nil  -- no spree slots in simple mode
+	end
 	local pool = pack[key]
-	if not pool or #pool == 0 then return nil end
+	if not pool or #pool == 0 then return nil, nil end
 	local file = pool[math.random(#pool)]
-	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file
+	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
 end
 
 local function PlayMilestoneSound(key)
@@ -102,11 +151,22 @@ end
 
 local announceFrame, announceText, hideTimer
 
-local function ShowAnnounce(text, r, g, b)
+-- packFlags: optional table with displayName/rainbow overrides from the sound pack
+local function ShowAnnounce(text, r, g, b, soundFile)
 	if not db or not db.screenAnnounce then return end
 	if not announceFrame then return end
-	announceText:SetText(text)
-	announceText:SetTextColor(r, g, b)
+	local pack = SOUND_PACKS[db.soundPack]
+	local displayText = text
+	if pack and pack.displayName and soundFile then
+		displayText = FileToDisplayName(soundFile)
+	end
+	if pack and pack.rainbow then
+		announceText:SetText(RainbowText(displayText))
+		announceText:SetTextColor(1, 1, 1)
+	else
+		announceText:SetText(displayText)
+		announceText:SetTextColor(r, g, b)
+	end
 	if hideTimer then hideTimer:Cancel() hideTimer = nil end
 	announceFrame:SetAlpha(1)
 	announceFrame:Show()
@@ -161,20 +221,22 @@ local function OnKill(isPlayer)
 
 	local mk = MULTI_KILL[multiKillCount]
 	if mk then
-		ShowAnnounce(mk.text, mk.r, mk.g, mk.b)
+		local sound, file = GetSound(multiKillCount)
+		if sound then PlaySoundFile(sound, "Master") end
+		ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
 		ChatAnnounce(mk.text)
-		PlayMilestoneSound(multiKillCount)
 	end
 
 	if isPlayer and db.spreeAnnounce then
 		spreeCount = spreeCount + 1
 		local spree = KILLING_SPREE[spreeCount]
 		if spree then
+			local spreeSound, spreeFile = GetSound(spree.sound)
 			C_Timer.After(mk and 1.6 or 0, function()
-				ShowAnnounce(spree.text, spree.r, spree.g, spree.b)
+				if spreeSound then PlaySoundFile(spreeSound, "Master") end
+				ShowAnnounce(spree.text, spree.r, spree.g, spree.b, spreeFile)
 			end)
 			ChatAnnounce(spree.text)
-			PlayMilestoneSound(spree.sound)
 		end
 	end
 end

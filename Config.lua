@@ -184,6 +184,62 @@ local function CreateConfigPanel()
 
 	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
+	SectionHeader("Sound Pack")
+
+	local SOUND_PACK_LIST = { "Unreal_Theme", "Flamboyant_theme" }
+	local SOUND_PACK_LABELS = { Unreal_Theme = "Unreal Tournament", Flamboyant_theme = "Flamboyant" }
+
+	local packNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	packNote:SetPoint("TOPLEFT", 20, yOffset)
+	packNote:SetText("Announcer voice pack:")
+	yOffset = yOffset - 26
+
+	-- Prev button
+	local prevBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	prevBtn:SetSize(28, 24)
+	prevBtn:SetPoint("TOPLEFT", 20, yOffset)
+	prevBtn:SetText("<")
+
+	-- Pack name label
+	local packLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	packLabel:SetPoint("LEFT", prevBtn, "RIGHT", 8, 0)
+	packLabel:SetWidth(200)
+	packLabel:SetJustifyH("LEFT")
+
+	-- Next button
+	local nextBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	nextBtn:SetSize(28, 24)
+	nextBtn:SetPoint("LEFT", packLabel, "RIGHT", 8, 0)
+	nextBtn:SetText(">")
+
+	local function UpdatePackLabel()
+		packLabel:SetText(SOUND_PACK_LABELS[db.soundPack] or db.soundPack)
+	end
+	UpdatePackLabel()
+
+	local function GetPackIndex()
+		for i, v in ipairs(SOUND_PACK_LIST) do
+			if v == db.soundPack then return i end
+		end
+		return 1
+	end
+
+	prevBtn:SetScript("OnClick", function()
+		local i = GetPackIndex()
+		i = ((i - 2) % #SOUND_PACK_LIST) + 1
+		db.soundPack = SOUND_PACK_LIST[i]
+		UpdatePackLabel()
+	end)
+
+	nextBtn:SetScript("OnClick", function()
+		local i = GetPackIndex()
+		i = (i % #SOUND_PACK_LIST) + 1
+		db.soundPack = SOUND_PACK_LIST[i]
+		UpdatePackLabel()
+	end)
+
+	yOffset = yOffset - 36
+
 	SectionHeader("Multi-Kill Time Window")
 
 	local windowNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
