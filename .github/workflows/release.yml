@@ -1,13 +1,17 @@
 name: Release to CurseForge
 
 on:
-  push:
-    tags:
-      - 'v*'  # Triggers on version tags like v1.0.0, v1.1.0, etc.
+  workflow_dispatch:  # Manual trigger only — run from GitHub Actions UI or CLI
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.0.5)'
+        required: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required to create GitHub releases
     
     steps:
       - name: Checkout code
@@ -36,28 +40,22 @@ jobs:
           # Verify zip was created
           ls -lh MegaKill_Announcer.zip
       
-      - name: Get version from tag
+      - name: Get version from input
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
       
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # If CHANGELOG.md exists, extract this version's changes
+          VERSION="${{ github.event.inputs.version }}"
           if [ -f "CHANGELOG.md" ]; then
-            # Extract section for this version
-            VERSION="${GITHUB_REF#refs/tags/v}"
             CHANGELOG=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
-            
-            # Fallback if extraction fails
             if [ -z "$CHANGELOG" ]; then
               CHANGELOG="Release ${VERSION}"
             fi
           else
-            CHANGELOG="Release ${GITHUB_REF#refs/tags/v}"
+            CHANGELOG="Release ${VERSION}"
           fi
-          
-          # Set multiline output
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -72,12 +70,13 @@ jobs:
           changelog: ${{ steps.changelog.outputs.CHANGELOG }}
           changelog_type: markdown
           display_name: MegaKill Announcer v${{ steps.get_version.outputs.VERSION }}
-          game_versions: 11403,120001  # Classic Era 1.14.3, Retail 12.0.0.1
+          game_versions: 1.15.8,12.0.5  # Classic Era 1.15.8, Retail 12.0.5
           release_type: release
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
           files: MegaKill_Announcer.zip
           body: ${{ steps.changelog.outputs.CHANGELOG }}
           draft: false

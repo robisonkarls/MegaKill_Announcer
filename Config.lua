@@ -4,19 +4,49 @@ local ADDON_NAME = "MegaKill_Announcer"
 local PREFIX = "|cffff7d0aMegaKill|r"
 
 local configPanel = nil
-local configCategory = nil -- Retail 10.0+
+local configCategory = nil
+
+-- ── Retail version check ──────────────────────────────────────────────────────
+
+local isRetailNew = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and
+	(select(4, GetBuildInfo()) >= 100000)
 
 -- ── Open the config panel ─────────────────────────────────────────────────────
 
 function MegaKill_OpenConfig()
 	if configCategory then
-		-- Retail 10.0+ (Settings API)
 		Settings.OpenToCategory(configCategory:GetID())
 	elseif InterfaceOptionsFrame_OpenToCategory then
-		-- Classic / pre-10.0 Retail
 		InterfaceOptionsFrame_OpenToCategory(configPanel)
-		InterfaceOptionsFrame_OpenToCategory(configPanel) -- Double call fixes scroll bug
+		InterfaceOptionsFrame_OpenToCategory(configPanel)
 	end
+end
+
+-- ── Simple cycling button (replaces UIDropDownMenu) ──────────────────────────
+
+local function CreateCycleButton(parent, options, getter, setter, yOff)
+	local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	btn:SetPoint("TOPLEFT", 20, yOff)
+	btn:SetSize(200, 26)
+
+	local function Refresh()
+		btn:SetText(getter() .. "  ▾")
+	end
+
+	btn:SetScript("OnClick", function()
+		local cur = getter()
+		local idx = 1
+		for i, v in ipairs(options) do
+			if v == cur then idx = i break end
+		end
+		idx = (idx % #options) + 1
+		setter(options[idx])
+		Refresh()
+	end)
+
+	Refresh()
+	btn.Refresh = Refresh
+	return btn
 end
 
 -- ── Build the panel ───────────────────────────────────────────────────────────
@@ -40,7 +70,7 @@ local function CreateConfigPanel()
 
 	local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0|r")
+	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.4|r")
 
 	local divider = panel:CreateTexture(nil, "ARTWORK")
 	divider:SetHeight(1)
@@ -48,18 +78,17 @@ local function CreateConfigPanel()
 	divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, 0)
 	divider:SetColorTexture(0.3, 0.3, 0.3, 1)
 
-	-- ── Section header helper ─────────────────────────────────────────────────
+	-- ── Helpers ───────────────────────────────────────────────────────────────
 
 	local yOffset = -85
+	local checkboxes = {}
+
 	local function SectionHeader(text)
 		local lbl = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 		lbl:SetPoint("TOPLEFT", 16, yOffset)
 		lbl:SetText("|cffffd700" .. text .. "|r")
 		yOffset = yOffset - 24
-		return lbl
 	end
-
-	-- ── Checkbox helper ───────────────────────────────────────────────────────
 
 	local function CreateCheckbox(label, tooltip, getter, setter)
 		local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -70,7 +99,6 @@ local function CreateConfigPanel()
 		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
 		lbl:SetText(label)
 
-		check.tooltipText = tooltip
 		check:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(tooltip, nil, nil, nil, nil, true)
@@ -80,146 +108,86 @@ local function CreateConfigPanel()
 		check:SetScript("OnClick", function(self)
 			setter(self:GetChecked())
 		end)
-
-		-- Refresh function
 		check.Refresh = function() check:SetChecked(getter()) end
+		table.insert(checkboxes, check)
 
 		yOffset = yOffset - 30
 		return check
 	end
 
-	-- ── General section ───────────────────────────────────────────────────────
+	-- ── General ───────────────────────────────────────────────────────────────
 
 	SectionHeader("General")
 
-	local enabledCheck = CreateCheckbox(
-		"Enable Addon",
+	CreateCheckbox("Enable Addon",
 		"Turn MegaKill Announcer on or off.",
 		function() return db.enabled end,
-		function(val) db.enabled = val end
-	)
+		function(v) db.enabled = v end)
 
-	local pvpCheck = CreateCheckbox(
-		"PvP Kills Only  (Honorable Kills)",
-		"Only track player kills. Disabling this counts all kills including mobs.",
+	CreateCheckbox("PvP Kills Only  (Honorable Kills)",
+		"Only track player kills.",
 		function() return db.onlyPvP end,
-		function(val) db.onlyPvP = val end
-	)
+		function(v) db.onlyPvP = v end)
 
 	yOffset = yOffset - 8
 
-	-- ── Announcements section ─────────────────────────────────────────────────
+	-- ── Announcements ─────────────────────────────────────────────────────────
 
 	SectionHeader("Announcements")
 
-	local screenCheck = CreateCheckbox(
-		"Show On-Screen Text",
-		"Display large coloured text in the centre of your screen on each kill.",
+	CreateCheckbox("Show On-Screen Text",
+		"Display large coloured text on each kill.",
 		function() return db.screenAnnounce end,
-		function(val) db.screenAnnounce = val end
-	)
+		function(v) db.screenAnnounce = v end)
 
-	local soundCheck = CreateCheckbox(
-		"Play Sound Effects",
-		"Play audio cues for Double Kill, Triple Kill, Monster Kill, etc.",
+	CreateCheckbox("Play Sound Effects",
+		"Play audio cues for kill milestones.",
 		function() return db.sound end,
-		function(val) db.sound = val end
-	)
+		function(v) db.sound = v end)
 
-	local spreeCheck = CreateCheckbox(
-		"Announce Killing Sprees",
-		"Announce milestone kill counts (Killing Spree, Rampage, Godlike…) without dying.",
+	CreateCheckbox("Announce Killing Sprees",
+		"Announce Killing Spree, Rampage, Godlike, etc.",
 		function() return db.spreeAnnounce end,
-		function(val) db.spreeAnnounce = val end
-	)
+		function(v) db.spreeAnnounce = v end)
 
-	local chatCheck = CreateCheckbox(
-		"Broadcast to Chat",
+	CreateCheckbox("Broadcast to Chat",
 		"Send kill announcements to a chat channel.",
 		function() return db.chatAnnounce end,
-		function(val) db.chatAnnounce = val end
-	)
+		function(v) db.chatAnnounce = v end)
 
-	local streakBarCheck = CreateCheckbox(
-		"Show Streak Timer Bar",
-		"Display a thin progress bar showing how much time you have left to chain the next kill.",
+	CreateCheckbox("Show Streak Timer Bar",
+		"Thin progress bar showing time left to chain the next kill.",
 		function() return db.streakBar end,
-		function(val)
-			db.streakBar = val
-			if MegaKill_StreakBar_SetVisible then
-				MegaKill_StreakBar_SetVisible(val)
-			end
-		end
-	)
+		function(v)
+			db.streakBar = v
+			if MegaKill_StreakBar_SetVisible then MegaKill_StreakBar_SetVisible(v) end
+		end)
 
 	yOffset = yOffset - 8
 
-	-- ── Sound Pack selector ───────────────────────────────────────────────────
-
-	SectionHeader("Sound Pack")
-
-	local soundPackLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	soundPackLabel:SetPoint("TOPLEFT", 20, yOffset)
-	soundPackLabel:SetText("Select announcement sound pack:")
-	yOffset = yOffset - 28
-
-	local soundPacks = { "Unreal_Theme" }
-	local soundPackNames = { Unreal_Theme = "Unreal Tournament" }
-
-	local soundPackDropdown = CreateFrame("Frame", ADDON_NAME .. "_SoundPackDropdown", panel, "UIDropDownMenuTemplate")
-	soundPackDropdown:SetPoint("TOPLEFT", 4, yOffset + 10)
-	UIDropDownMenu_SetWidth(soundPackDropdown, 180)
-
-	UIDropDownMenu_Initialize(soundPackDropdown, function(self, level)
-		for _, pack in ipairs(soundPacks) do
-			local info = UIDropDownMenu_CreateInfo()
-			info.text = soundPackNames[pack] or pack
-			info.checked = (db.soundPack == pack)
-			info.func = function()
-				db.soundPack = pack
-				UIDropDownMenu_SetText(soundPackDropdown, soundPackNames[pack] or pack)
-				CloseDropDownMenus()
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-	end)
-
-	yOffset = yOffset - 40
+	-- ── Chat Channel ──────────────────────────────────────────────────────────
 
 	SectionHeader("Chat Channel")
 
-	local channelLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	channelLabel:SetPoint("TOPLEFT", 20, yOffset)
-	channelLabel:SetText("Broadcast kills to:")
-	yOffset = yOffset - 28
+	local channelNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	channelNote:SetPoint("TOPLEFT", 20, yOffset)
+	channelNote:SetText("Broadcast kills to (click to cycle):")
+	yOffset = yOffset - 26
 
-	local channelDropdown = CreateFrame("Frame", ADDON_NAME .. "_ChannelDropdown", panel, "UIDropDownMenuTemplate")
-	channelDropdown:SetPoint("TOPLEFT", 4, yOffset + 10)
-	UIDropDownMenu_SetWidth(channelDropdown, 160)
+	local channelBtn = CreateCycleButton(panel,
+		{"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"},
+		function() return db.chatChannel end,
+		function(v) db.chatChannel = v end,
+		yOffset)
+	yOffset = yOffset - 36
 
-	local channels = {"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"}
-
-	UIDropDownMenu_Initialize(channelDropdown, function(self, level)
-		for _, ch in ipairs(channels) do
-			local info = UIDropDownMenu_CreateInfo()
-			info.text = ch
-			info.checked = (db.chatChannel == ch)
-			info.func = function()
-				db.chatChannel = ch
-				UIDropDownMenu_SetText(channelDropdown, ch)
-				CloseDropDownMenus()
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-	end)
-
-	-- ── Chat channel dropdown ────────────────────────────────────────────────
+	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
 	SectionHeader("Multi-Kill Time Window")
 
 	local windowNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	windowNote:SetPoint("TOPLEFT", 20, yOffset)
-	windowNote:SetText("Kills within this window chain together (e.g. Double Kill, Triple Kill…)")
+	windowNote:SetText("Kills within this window chain together:")
 	yOffset = yOffset - 28
 
 	local windowSlider = CreateFrame("Slider", ADDON_NAME .. "_WindowSlider", panel, "OptionsSliderTemplate")
@@ -246,13 +214,13 @@ local function CreateConfigPanel()
 
 	yOffset = yOffset - 55
 
-	-- ── Test buttons ──────────────────────────────────────────────────────────
+	-- ── Preview ───────────────────────────────────────────────────────────────
 
 	SectionHeader("Preview Announcements")
 
 	local previewNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	previewNote:SetPoint("TOPLEFT", 20, yOffset)
-	previewNote:SetText("Click to preview an announcement on screen:")
+	previewNote:SetText("Click to preview an announcement:")
 	yOffset = yOffset - 30
 
 	local tests = {
@@ -268,40 +236,27 @@ local function CreateConfigPanel()
 		btn:SetSize(130, 26)
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
-			if MegaKill_ShowAnnounce then
-				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b)
-			end
-			if MegaKill_PlayMilestoneSound then
-				MegaKill_PlayMilestoneSound(t.idx)
-			end
+			if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b) end
+			if MegaKill_PlayMilestoneSound then MegaKill_PlayMilestoneSound(t.idx) end
 		end)
 		xPos = xPos + 140
 	end
 
-	-- ── Refresh all controls on show ──────────────────────────────────────────
+	-- ── Refresh on show ───────────────────────────────────────────────────────
 
 	panel:SetScript("OnShow", function()
-		enabledCheck:Refresh()
-		pvpCheck:Refresh()
-		screenCheck:Refresh()
-		soundCheck:Refresh()
-		spreeCheck:Refresh()
-		chatCheck:Refresh()
-		streakBarCheck:Refresh()
-		UIDropDownMenu_SetText(soundPackDropdown, soundPackNames[db.soundPack] or db.soundPack)
-		UIDropDownMenu_SetText(channelDropdown, db.chatChannel)
+		for _, cb in ipairs(checkboxes) do cb:Refresh() end
+		channelBtn:Refresh()
 		windowSlider:SetValue(db.killWindow)
 	end)
 
 	-- ── Register panel ────────────────────────────────────────────────────────
 
 	if Settings and Settings.RegisterCanvasLayoutCategory then
-		-- Retail 10.0+
 		local cat = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
 		Settings.RegisterAddOnCategory(cat)
 		configCategory = cat
 	elseif InterfaceOptions_AddCategory then
-		-- Classic / pre-10.0
 		InterfaceOptions_AddCategory(panel)
 	end
 end
