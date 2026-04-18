@@ -8,11 +8,12 @@ MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
 MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")    -- Classic; ignored on Retail via IS_RETAIL guard
--- UNIT_DIED is Retail 12.0+ only — registered after PLAYER_LOGIN confirms version
+-- Version check at file scope (before any callback)
 local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 if IS_RETAIL_PRECHECK then
-	MK_Frame:RegisterEvent("UNIT_DIED")
+	MK_Frame:RegisterEvent("UNIT_DIED")                   -- Retail 12.0+: replaces CLEU
+else
+	MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED") -- Classic only
 end
 
 -- Default settings
@@ -21,7 +22,6 @@ local DEFAULTS = {
 	screenAnnounce = true,
 	chatAnnounce   = false,
 	chatChannel    = "PARTY",
-	sound          = true,
 	soundPack      = "Unreal_Theme",
 	killWindow     = 15,
 	onlyPvP        = false,
@@ -128,7 +128,7 @@ end
 -- ── Sound ─────────────────────────────────────────────────────────────────────
 
 local function GetSound(key)
-	if not db or not db.sound then return nil, nil end
+	if not db then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil, nil end
 	-- simpleSlots: cap numeric keys at 5, ignore spree string keys
@@ -150,6 +150,17 @@ end
 
 function MegaKill_PlayMilestoneSound(key)
 	PlayMilestoneSound(key)
+end
+
+-- Returns both the sound path and filename for a given key (single roll)
+function MegaKill_GetSound(key)
+	return GetSound(key)
+end
+
+-- Returns the selected file for a given key (for Config preview)
+function MegaKill_GetSoundFile(key)
+	local _, file = GetSound(key)
+	return file
 end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
@@ -185,8 +196,8 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	end)
 end
 
-function MegaKill_ShowAnnounce(text, r, g, b)
-	ShowAnnounce(text, r, g, b)
+function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
+	ShowAnnounce(text, r, g, b, soundFile)
 end
 
 -- ── Chat queue (Classic only) ─────────────────────────────────────────────────
@@ -271,7 +282,7 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		announceText:SetShadowOffset(2, -2)
 		announceText:SetShadowColor(0, 0, 0, 1)
 
-		print(PREFIX .. " |cffffd700v1.0.6|r loaded — type |cffffd700/mk help|r for commands.")
+		print(PREFIX .. " |cffffd700v1.0.7|r loaded — type |cffffd700/mk help|r for commands.")
 
 	elseif ev == "PLAYER_DEAD" then
 		if spreeCount >= 5 then

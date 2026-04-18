@@ -2,7 +2,7 @@
 ## Title: MegaKill Announcer
 ## Notes: Announces multi-kills and killing sprees with screen text, sounds, and chat messages.
 ## Author: Robison Karls Custodio
-## Version: 1.0.6
+## Version: 1.0.7
 ## SavedVariables: MegaKill_Config
 
 Bootstrap.xml
