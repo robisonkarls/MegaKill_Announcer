@@ -315,9 +315,10 @@ local function CreateConfigPanel()
 		btn:SetSize(100, 26)
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
-			if MegaKill_PlayMilestoneSound then MegaKill_PlayMilestoneSound(t.idx) end
+			-- Get one consistent pick for both sound and text
+			local soundPath, soundFile = MegaKill_GetSound and MegaKill_GetSound(t.idx)
+			if soundPath then PlaySoundFile(soundPath, "Master") end
 			if MegaKill_ShowAnnounce then
-				local soundFile = MegaKill_GetSoundFile and MegaKill_GetSoundFile(t.idx)
 				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b, soundFile)
 			end
 		end)

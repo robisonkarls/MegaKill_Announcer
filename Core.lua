@@ -151,6 +151,11 @@ function MegaKill_PlayMilestoneSound(key)
 	PlayMilestoneSound(key)
 end
 
+-- Returns both the sound path and filename for a given key (single roll)
+function MegaKill_GetSound(key)
+	return GetSound(key)
+end
+
 -- Returns the selected file for a given key (for Config preview)
 function MegaKill_GetSoundFile(key)
 	local _, file = GetSound(key)
