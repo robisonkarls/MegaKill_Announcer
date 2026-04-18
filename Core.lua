@@ -70,23 +70,13 @@ local SOUND_PACKS = {
 		-- Use filename as announce text, render in rainbow colors
 		displayName = true,
 		rainbow     = true,
-		-- Multi-kill milestones
-		[1] = { "CHERRY_POPPAH.wav" },
-		[2] = { "Its_a_three_wayy.wav", "Uuuuuhh.wav" },
-		[3] = { "Fabulous.wav", "Its_a_three_wayy.wav" },
-		[4] = { "Super_Star.wav", "Bitch_Slapped.wav" },
-		[5] = { "Unicorn_Stampeeede.wav", "Home_Wracker.wav" },
-		[6] = { "Homecidal.wav", "Uuuuu_Scary.wav" },
-		[7] = { "rainbow_warrior.wav", "Hoooo_Noooo.wav" },
-		[8] = { "Like_Oh_EME_Jay.wav", "big_bear.wav" },
-		[9] = { "YaaaaaYyy.wav" },
-		-- Killing spree milestones
-		Killing_Spree = { "Gotcha.wav", "Hoo_hu_huuu.wav" },
-		Rampage       = { "CANT_TOUCH_THIS.wav" },
-		Unstoppable   = { "Machooowav.wav" },
-		Dominating    = { "Domination.wav", "diva.wav" },
-		Godlike       = { "diva.wav", "Super_Star.wav" },
-		Wicked_Sick   = { "Hoo_hu_huuu.wav", "YaaaaaYyy.wav" },
+		-- Simple 5-slot mode: kill count capped at 5, no spree tracking
+		simpleSlots = true,
+		[1] = { "CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav" },
+		[2] = { "Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav" },
+		[3] = { "Fabulous.wav", "Home_Wracker.wav", "Hoooo_Noooo.wav", "Machooowav.wav" },
+		[4] = { "Super_Star.wav", "rainbow_warrior.wav", "CANT_TOUCH_THIS.wav", "big_bear.wav" },
+		[5] = { "Unicorn_Stampeeede.wav", "Homecidal.wav", "Like_Oh_EME_Jay.wav", "Domination.wav", "diva.wav", "YaaaaaYyy.wav" },
 	},
 }
 
@@ -136,6 +126,12 @@ local function GetSound(key)
 	if not db or not db.sound then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil, nil end
+	-- simpleSlots: cap numeric keys at 5, ignore spree string keys
+	if pack.simpleSlots and type(key) == "number" then
+		key = math.min(key, 5)
+	elseif pack.simpleSlots and type(key) == "string" then
+		return nil, nil  -- no spree slots in simple mode
+	end
 	local pool = pack[key]
 	if not pool or #pool == 0 then return nil, nil end
 	local file = pool[math.random(#pool)]
