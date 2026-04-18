@@ -162,14 +162,16 @@ local function CreateConfigPanel()
 			if MegaKill_StreakBar_SetVisible then MegaKill_StreakBar_SetVisible(v) end
 		end, 240, rowY)
 
+	yOffset = yOffset - 34
+
 	if not IS_RETAIL then
-		CreateCheckboxAt("Broadcast to Chat",
+		CreateCheckbox("Broadcast to Chat",
 			"Send kill announcements to a chat channel.",
 			function() return db.chatAnnounce end,
-			function(v) db.chatAnnounce = v end, 240, rowY)
+			function(v) db.chatAnnounce = v end)
 	end
 
-	yOffset = yOffset - 38
+	yOffset = yOffset - 4
 
 	-- ── Chat Channel (Classic only) ───────────────────────────────────────────
 
