@@ -1,5 +1,16 @@
 local PREFIX = "|cffff7d0aMegaKill|r"
 
+-- ── Top-level event frame (created before any function runs) ─────────────────
+-- Must be at file scope so RegisterEvent runs in a clean execution context,
+-- not inside a callback. This is how DBM and other major addons do it.
+local MK_Frame = CreateFrame("Frame")
+MK_Frame:RegisterEvent("PLAYER_LOGIN")
+MK_Frame:RegisterEvent("PLAYER_DEAD")
+MK_Frame:RegisterEvent("PLAYER_ALIVE")
+MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+-- Classic chat flush
+MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+
 -- Default settings
 local DEFAULTS = {
 	enabled        = true,
@@ -169,53 +180,34 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Bootstrap — called by Bootstrap.xml OnEvent ─────────────────────────────
+-- ── Bootstrap ───────────────────────────────────────────────────────────────
 
-function MegaKill_OnPlayerLogin()
-	IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
-
-	-- Init SavedVariables
-	playerGUID = UnitGUID("player")
-	MegaKill_Config = MegaKill_Config or {}
-	for k, v in pairs(DEFAULTS) do
-		if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
-	end
-	db = MegaKill_Config
-
-	-- Build announce frame
-	announceFrame = CreateFrame("Frame", nil, UIParent)
-	announceFrame:SetSize(500, 80)
-	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
-	announceFrame:SetFrameStrata("HIGH")
-	announceFrame:Hide()
-	announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-	announceText:SetAllPoints()
-	announceText:SetJustifyH("CENTER")
-	announceText:SetJustifyV("MIDDLE")
-	announceText:SetShadowOffset(2, -2)
-	announceText:SetShadowColor(0, 0, 0, 1)
-
-	-- Register combat/state events.
-	-- Frame:RegisterEvent is protected during InCombatLockdown().
-	-- If PLAYER_LOGIN fires while already in combat (BG/arena login),
-	-- we must defer until PLAYER_REGEN_ENABLED.
-	local function RegisterCombatEvents(frame)
-		frame:RegisterEvent("PLAYER_DEAD")
-		frame:RegisterEvent("PLAYER_ALIVE")
-		frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	end
-
-	local eventFrame = CreateFrame("Frame")
-
-	local function onCombatLog()
-		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
-		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
-			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
-			OnKill(isPlayer)
+MK_Frame:SetScript("OnEvent", function(_, ev)
+	if ev == "PLAYER_LOGIN" then
+		IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+		playerGUID = UnitGUID("player")
+		MegaKill_Config = MegaKill_Config or {}
+		for k, v in pairs(DEFAULTS) do
+			if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
 		end
-	end
+		db = MegaKill_Config
 
-	local function onPlayerDead()
+		-- Build announce frame
+		announceFrame = CreateFrame("Frame", nil, UIParent)
+		announceFrame:SetSize(500, 80)
+		announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+		announceFrame:SetFrameStrata("HIGH")
+		announceFrame:Hide()
+		announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+		announceText:SetAllPoints()
+		announceText:SetJustifyH("CENTER")
+		announceText:SetJustifyV("MIDDLE")
+		announceText:SetShadowOffset(2, -2)
+		announceText:SetShadowColor(0, 0, 0, 1)
+
+		print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
+
+	elseif ev == "PLAYER_DEAD" then
 		if spreeCount >= 5 then
 			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
 			print(PREFIX .. " " .. endMsg)
@@ -223,58 +215,29 @@ function MegaKill_OnPlayerLogin()
 		end
 		spreeCount = 0
 		ResetMultiKill()
-	end
 
-	eventFrame:SetScript("OnEvent", function(_, ev)
-		if ev == "PLAYER_REGEN_ENABLED" then
-			-- Out of combat — register main events now (deferred from combat login)
-			RegisterCombatEvents(eventFrame)
-			-- Don't need this anymore once registered
-			eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
-		elseif ev == "PLAYER_DEAD" then
-			onPlayerDead()
-		elseif ev == "PLAYER_ALIVE" then
-			ResetMultiKill()
-		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
-			onCombatLog()
+	elseif ev == "PLAYER_ALIVE" then
+		ResetMultiKill()
+
+	elseif ev == "PLAYER_REGEN_ENABLED" then
+		-- Flush chat queue (Classic)
+		while #chatQueue > 0 do
+			local msg = table.remove(chatQueue, 1)
+			SendChatMessage(msg.text, msg.channel)
 		end
-	end)
 
-	if InCombatLockdown() then
-		-- In combat at login — defer RegisterEvent until we're out
-		eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-	else
-		RegisterCombatEvents(eventFrame)
-	end
-
-	-- Classic chat flush
-	if not IS_RETAIL then
-		local chatFrame = CreateFrame("Frame")
-		if InCombatLockdown() then
-			chatFrame:SetScript("OnEvent", function(_, ev)
-				if ev == "PLAYER_REGEN_ENABLED" then
-					chatFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
-					chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED") -- re-register for chat flush use
-				end
-				while #chatQueue > 0 do
-					local msg = table.remove(chatQueue, 1)
-					SendChatMessage(msg.text, msg.channel)
-				end
-			end)
-			chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-		else
-			chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-			chatFrame:SetScript("OnEvent", function()
-				while #chatQueue > 0 do
-					local msg = table.remove(chatQueue, 1)
-					SendChatMessage(msg.text, msg.channel)
-				end
-			end)
+	elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+		if not db then return end
+		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
+		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
+			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
+			OnKill(isPlayer)
 		end
 	end
+end)
 
-	print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
-end
+-- Bootstrap.xml is only used for the BootFrame name (no events registered there)
+function MegaKill_OnPlayerLogin() end  -- kept for XML compat, no-op now
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
 
