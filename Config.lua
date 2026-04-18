@@ -18,33 +18,6 @@ function MegaKill_OpenConfig()
 	end
 end
 
--- ── Simple cycling button (replaces UIDropDownMenu) ──────────────────────────
-
-local function CreateCycleButton(parent, options, getter, setter, yOff)
-	local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	btn:SetPoint("TOPLEFT", 20, yOff)
-	btn:SetSize(200, 26)
-
-	local function Refresh()
-		btn:SetText(getter() .. "  ▾")
-	end
-
-	btn:SetScript("OnClick", function()
-		local cur = getter()
-		local idx = 1
-		for i, v in ipairs(options) do
-			if v == cur then idx = i break end
-		end
-		idx = (idx % #options) + 1
-		setter(options[idx])
-		Refresh()
-	end)
-
-	Refresh()
-	btn.Refresh = Refresh
-	return btn
-end
-
 -- ── Build the panel ───────────────────────────────────────────────────────────
 
 local function CreateConfigPanel()
@@ -54,11 +27,12 @@ local function CreateConfigPanel()
 		return
 	end
 
+	-- Outer frame registered with Settings
 	local panel = CreateFrame("Frame", ADDON_NAME .. "_ConfigPanel", UIParent)
 	panel.name = "MegaKill Announcer"
 	configPanel = panel
 
-	-- ── Header ────────────────────────────────────────────────────────────────
+	-- ── Header (fixed, outside scroll) ───────────────────────────────────────
 
 	local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 16, -16)
@@ -66,32 +40,47 @@ local function CreateConfigPanel()
 
 	local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.4|r")
+	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.6|r")
 
 	local divider = panel:CreateTexture(nil, "ARTWORK")
 	divider:SetHeight(1)
-	divider:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -10)
+	divider:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -8)
 	divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -16, 0)
 	divider:SetColorTexture(0.3, 0.3, 0.3, 1)
 
+	-- ── ScrollFrame ───────────────────────────────────────────────────────────
+
+	local scrollFrame = CreateFrame("ScrollFrame", ADDON_NAME .. "_Scroll", panel, "UIPanelScrollFrameTemplate")
+	scrollFrame:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", 0, -8)
+	scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 8)
+
+	local content = CreateFrame("Frame", nil, scrollFrame)
+	content:SetSize(scrollFrame:GetWidth() or 500, 800)
+	scrollFrame:SetScrollChild(content)
+
+	-- Resize content width when panel resizes
+	panel:SetScript("OnSizeChanged", function(_, w, _)
+		content:SetWidth(w - 44)
+	end)
+
 	-- ── Helpers ───────────────────────────────────────────────────────────────
 
-	local yOffset = -85
+	local yOffset = -8
 	local checkboxes = {}
 
 	local function SectionHeader(text)
-		local lbl = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		local lbl = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 		lbl:SetPoint("TOPLEFT", 16, yOffset)
 		lbl:SetText("|cffffd700" .. text .. "|r")
 		yOffset = yOffset - 24
 	end
 
 	local function CreateCheckbox(label, tooltip, getter, setter)
-		local check = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+		local check = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
 		check:SetPoint("TOPLEFT", 20, yOffset)
 		check:SetSize(24, 24)
 
-		local lbl = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		local lbl = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
 		lbl:SetText(label)
 
@@ -109,64 +98,94 @@ local function CreateConfigPanel()
 		return check
 	end
 
+	-- ── Two-column checkboxes ─────────────────────────────────────────────────
+
+	local function CreateCheckboxAt(label, tooltip, getter, setter, x, y)
+		local check = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+		check:SetPoint("TOPLEFT", x, y)
+		check:SetSize(24, 24)
+
+		local lbl = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
+		lbl:SetText(label)
+
+		check:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetText(tooltip, nil, nil, nil, nil, true)
+			GameTooltip:Show()
+		end)
+		check:SetScript("OnLeave", function() GameTooltip:Hide() end)
+		check:SetScript("OnClick", function(self) setter(self:GetChecked()) end)
+		check.Refresh = function() check:SetChecked(getter()) end
+		table.insert(checkboxes, check)
+		return check
+	end
+
 	-- ── General ───────────────────────────────────────────────────────────────
 
 	SectionHeader("General")
 
-	CreateCheckbox("Enable Addon",
+	-- Two columns: left and right
+	local rowY = yOffset
+	CreateCheckboxAt("Enable Addon",
 		"Turn MegaKill Announcer on or off.",
 		function() return db.enabled end,
-		function(v) db.enabled = v end)
+		function(v) db.enabled = v end, 20, rowY)
 
-	CreateCheckbox("PvP Kills Only  (Honorable Kills)",
-		"Only track player kills. Disabling counts all kills including mobs.",
+	CreateCheckboxAt("PvP Kills Only",
+		"Only track Honorable Kills. Disabling counts all kills including mobs.",
 		function() return db.onlyPvP end,
-		function(v) db.onlyPvP = v end)
+		function(v) db.onlyPvP = v end, 240, rowY)
 
-	yOffset = yOffset - 8
+	yOffset = yOffset - 34
 
 	-- ── Announcements ─────────────────────────────────────────────────────────
 
 	SectionHeader("Announcements")
 
-	CreateCheckbox("Show On-Screen Text",
+	rowY = yOffset
+	CreateCheckboxAt("Show On-Screen Text",
 		"Display large coloured text in the centre of your screen on each kill.",
 		function() return db.screenAnnounce end,
-		function(v) db.screenAnnounce = v end)
+		function(v) db.screenAnnounce = v end, 20, rowY)
 
-	CreateCheckbox("Play Sound Effects",
-		"Play audio cues for kill milestones.",
-		function() return db.sound end,
-		function(v) db.sound = v end)
-
-	CreateCheckbox("Sound Only (no on-screen text)",
+	CreateCheckboxAt("Sound Only (no text)",
 		"Play sounds on kills but do not show on-screen text announcements.",
 		function() return db.soundOnly end,
-		function(v) db.soundOnly = v end)
+		function(v) db.soundOnly = v end, 240, rowY)
 
-	CreateCheckbox("Announce Killing Sprees",
+	yOffset = yOffset - 30
+
+	rowY = yOffset
+	CreateCheckboxAt("Play Sound Effects",
+		"Play audio cues for kill milestones.",
+		function() return db.sound end,
+		function(v) db.sound = v end, 20, rowY)
+
+	CreateCheckboxAt("Announce Killing Sprees",
 		"Announce Killing Spree, Rampage, Godlike, etc.",
 		function() return db.spreeAnnounce end,
-		function(v) db.spreeAnnounce = v end)
+		function(v) db.spreeAnnounce = v end, 240, rowY)
 
-	CreateCheckbox("Show Streak Timer Bar",
+	yOffset = yOffset - 30
+
+	rowY = yOffset
+	CreateCheckboxAt("Show Streak Timer Bar",
 		"Thin progress bar showing time left to chain the next kill.",
 		function() return db.streakBar end,
 		function(v)
 			db.streakBar = v
 			if MegaKill_StreakBar_SetVisible then MegaKill_StreakBar_SetVisible(v) end
-		end)
+		end, 20, rowY)
 
-	-- Chat announce — Classic only
-	local chatCheck
 	if not IS_RETAIL then
-		chatCheck = CreateCheckbox("Broadcast to Chat",
+		CreateCheckboxAt("Broadcast to Chat",
 			"Send kill announcements to a chat channel.",
 			function() return db.chatAnnounce end,
-			function(v) db.chatAnnounce = v end)
+			function(v) db.chatAnnounce = v end, 240, rowY)
 	end
 
-	yOffset = yOffset - 8
+	yOffset = yOffset - 38
 
 	-- ── Chat Channel (Classic only) ───────────────────────────────────────────
 
@@ -174,45 +193,55 @@ local function CreateConfigPanel()
 	if not IS_RETAIL then
 		SectionHeader("Chat Channel")
 
-		local channelNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		local channelNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 		channelNote:SetPoint("TOPLEFT", 20, yOffset)
-		channelNote:SetText("Broadcast kills to (click to cycle):")
-		yOffset = yOffset - 26
+		channelNote:SetText("Broadcast kills to:")
+		yOffset = yOffset - 24
 
-		channelBtn = CreateCycleButton(panel,
-			{"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"},
-			function() return db.chatChannel end,
-			function(v) db.chatChannel = v end,
-			yOffset)
+		channelBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+		channelBtn:SetPoint("TOPLEFT", 20, yOffset)
+		channelBtn:SetSize(180, 26)
+
+		local CHANNELS = {"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"}
+		local function RefreshChannel()
+			channelBtn:SetText(db.chatChannel .. "  ▾")
+		end
+		channelBtn:SetScript("OnClick", function()
+			local cur = db.chatChannel
+			local idx = 1
+			for i, v in ipairs(CHANNELS) do if v == cur then idx = i break end end
+			idx = (idx % #CHANNELS) + 1
+			db.chatChannel = CHANNELS[idx]
+			RefreshChannel()
+		end)
+		RefreshChannel()
+		channelBtn.Refresh = RefreshChannel
 		yOffset = yOffset - 36
 	end
 
-	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
+	-- ── Sound Pack ────────────────────────────────────────────────────────────
 
 	SectionHeader("Sound Pack")
 
-	local SOUND_PACK_LIST = { "Unreal_Theme", "Flamboyant_theme" }
+	local SOUND_PACK_LIST   = { "Unreal_Theme", "Flamboyant_theme" }
 	local SOUND_PACK_LABELS = { Unreal_Theme = "Unreal Tournament", Flamboyant_theme = "Flamboyant" }
 
-	local packNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	local packNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	packNote:SetPoint("TOPLEFT", 20, yOffset)
 	packNote:SetText("Announcer voice pack:")
 	yOffset = yOffset - 26
 
-	-- Prev button
-	local prevBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	local prevBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 	prevBtn:SetSize(28, 24)
 	prevBtn:SetPoint("TOPLEFT", 20, yOffset)
 	prevBtn:SetText("<")
 
-	-- Pack name label
-	local packLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	local packLabel = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	packLabel:SetPoint("LEFT", prevBtn, "RIGHT", 8, 0)
-	packLabel:SetWidth(200)
+	packLabel:SetWidth(180)
 	packLabel:SetJustifyH("LEFT")
 
-	-- Next button
-	local nextBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	local nextBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 	nextBtn:SetSize(28, 24)
 	nextBtn:SetPoint("LEFT", packLabel, "RIGHT", 8, 0)
 	nextBtn:SetText(">")
@@ -243,16 +272,18 @@ local function CreateConfigPanel()
 		UpdatePackLabel()
 	end)
 
-	yOffset = yOffset - 36
+	yOffset = yOffset - 38
+
+	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
 	SectionHeader("Multi-Kill Time Window")
 
-	local windowNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	local windowNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	windowNote:SetPoint("TOPLEFT", 20, yOffset)
 	windowNote:SetText("Kills within this window chain together:")
 	yOffset = yOffset - 28
 
-	local windowSlider = CreateFrame("Slider", ADDON_NAME .. "_WindowSlider", panel, "OptionsSliderTemplate")
+	local windowSlider = CreateFrame("Slider", ADDON_NAME .. "_WindowSlider", content, "OptionsSliderTemplate")
 	windowSlider:SetPoint("TOPLEFT", 20, yOffset)
 	windowSlider:SetWidth(300)
 	windowSlider:SetMinMaxValues(5, 60)
@@ -264,7 +295,7 @@ local function CreateConfigPanel()
 	if _G[sn .. "Low"]  then _G[sn .. "Low"]:SetText("5s")  end
 	if _G[sn .. "High"] then _G[sn .. "High"]:SetText("60s") end
 
-	local windowValue = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	local windowValue = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	windowValue:SetPoint("LEFT", windowSlider, "RIGHT", 12, 0)
 	windowValue:SetText(db.killWindow .. " sec")
 
@@ -278,14 +309,13 @@ local function CreateConfigPanel()
 
 	-- ── Preview ───────────────────────────────────────────────────────────────
 
-	SectionHeader("Preview Announcements")
+	SectionHeader("Preview")
 
-	local previewNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	local previewNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	previewNote:SetPoint("TOPLEFT", 20, yOffset)
-	previewNote:SetText("Click to preview an announcement:")
-	yOffset = yOffset - 30
+	previewNote:SetText("Click to preview from the selected pack:")
+	yOffset = yOffset - 28
 
-	-- Preview buttons — use selected pack, slots 1/2/3
 	local tests = {
 		{ label = "Kill 1", idx = 1, text = "First Blood!",  r = 1.0, g = 1.0, b = 1.0 },
 		{ label = "Kill 2", idx = 2, text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
@@ -294,9 +324,9 @@ local function CreateConfigPanel()
 
 	local xPos = 20
 	for _, t in ipairs(tests) do
-		local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+		local btn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 		btn:SetPoint("TOPLEFT", xPos, yOffset)
-		btn:SetSize(110, 26)
+		btn:SetSize(100, 26)
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
 			if MegaKill_PlayMilestoneSound then MegaKill_PlayMilestoneSound(t.idx) end
@@ -305,15 +335,21 @@ local function CreateConfigPanel()
 				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b, soundFile)
 			end
 		end)
-		xPos = xPos + 120
+		xPos = xPos + 110
 	end
+
+	yOffset = yOffset - 40
+
+	-- Resize content height to fit everything
+	content:SetHeight(math.abs(yOffset) + 20)
 
 	-- ── Refresh on show ───────────────────────────────────────────────────────
 
 	panel:SetScript("OnShow", function()
 		for _, cb in ipairs(checkboxes) do cb:Refresh() end
-		if channelBtn then channelBtn:Refresh() end
+		if channelBtn then channelBtn.Refresh() end
 		windowSlider:SetValue(db.killWindow)
+		UpdatePackLabel()
 	end)
 
 	-- ── Register panel ────────────────────────────────────────────────────────
