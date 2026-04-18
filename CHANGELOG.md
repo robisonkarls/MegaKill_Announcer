@@ -5,6 +5,23 @@ All notable changes to MegaKill Announcer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-04-18
+
+### Added
+- Heroes of Newerth Flamboyant announcer sound pack (22 audio files)
+- Rainbow text rendering for HoN Flamboyant pack — per-character cycling colors
+- Sound pack selector in Config UI (prev/next arrows)
+- Config UI uses ScrollFrame — nothing cut off on small panels
+- Two-column checkbox layout in Config
+- Preview buttons use selected pack sounds and matching text
+
+### Fixed
+- Retail 12.0: COMBAT_LOG_EVENT_UNFILTERED now only registered on Classic
+- UNIT_DIED now only registered on Retail 12.0+
+- Preview sound and text now always match (single random roll)
+- Config overlapping checkboxes resolved
+- Sounds always play — removed redundant sound toggle
+
 ## [1.0.1] - 2026-04-17
 
 ### Added
