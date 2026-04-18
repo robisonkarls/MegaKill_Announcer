@@ -1,9 +1,35 @@
 # Changelog
 
+## [1.0.6] - 2026-04-18
+### Added
+- Flamboyant announcer sound pack (HoN-inspired) with 22 audio files
+- Rainbow text rendering for Flamboyant pack — per-character cycling colors
+- Filename-as-display-name for Flamboyant pack (e.g. "Cherry Poppah")
+- Sound pack selector in Config UI with prev/next arrows
+- 5-slot simple pool system for Flamboyant pack (4–6 random files per slot)
+
+### Fixed
+- Retail 12.0 (Midnight): `COMBAT_LOG_EVENT_UNFILTERED` is restricted — switched to `UNIT_DIED`
+- Classic: `UNIT_DIED` is unknown — guarded behind Retail version check
+- All `RegisterEvent` calls moved to top-level file scope to avoid taint on both versions
+- `COMBAT_LOG_EVENT_UNFILTERED` registered at top-level for Classic with `IS_RETAIL` guard
+- `triple_kill.mp3` renamed to `.wav` for consistent audio format
+
 All notable changes to MegaKill Announcer will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.8] - 2026-04-18
+
+### Removed
+- Chat broadcasting feature removed entirely — sounds and screen text only
+
+### Fixed
+- Classic: syntax errors from orphaned code after chat removal
+- Classic: `WOW_PROJECT_MAINLINE` constant unreliable — switched to `WOW_PROJECT_ID == 1`
+- Classic: `UNIT_DIED` no longer attempted on Classic (Retail-only event)
+- Wago Addons: release now uploads as Stable (was Alpha due to untagged commit)
 
 ## [1.0.7] - 2026-04-18
 
