@@ -277,9 +277,6 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 	elseif ev == "PLAYER_ALIVE" then
 		ResetMultiKill()
 
-			end
-		end
-
 	elseif ev == "UNIT_DIED" then
 		-- Retail 12.0+: UNIT_DIED fires when a unit dies near the player.
 		-- unitGUID is a SecretValue when unit identity is restricted, but
