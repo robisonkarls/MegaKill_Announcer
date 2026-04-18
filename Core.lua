@@ -7,9 +7,9 @@ local MK_Frame = CreateFrame("Frame")
 MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
-MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 -- Version check at file scope (before any callback)
-local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+-- WOW_PROJECT_MAINLINE = 1 always; WOW_PROJECT_CLASSIC = 2; don't rely on constants being defined
+local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == 1)
 if IS_RETAIL_PRECHECK then
 	MK_Frame:RegisterEvent("UNIT_DIED")                   -- Retail 12.0+: replaces CLEU
 else
@@ -20,8 +20,6 @@ end
 local DEFAULTS = {
 	enabled        = true,
 	screenAnnounce = true,
-	chatAnnounce   = false,
-	chatChannel    = "PARTY",
 	soundPack      = "Unreal_Theme",
 	killWindow     = 15,
 	onlyPvP        = false,
@@ -200,20 +198,6 @@ function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
 	ShowAnnounce(text, r, g, b, soundFile)
 end
 
--- ── Chat queue (Classic only) ─────────────────────────────────────────────────
-
-local chatQueue = {}
-
-local function ChatAnnounce(text)
-	if IS_RETAIL then return end
-	if not db or not db.chatAnnounce then return end
-	local ch = db.chatChannel
-	if ch == "BATTLEGROUND" and not UnitInBattleground("player") then return end
-	if ch == "INSTANCE_CHAT" and not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return end
-	if ch == "RAID" and not IsInRaid() then return end
-	if ch == "PARTY" and not IsInGroup() then return end
-	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = ch })
-end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
 
@@ -240,7 +224,6 @@ local function OnKill(isPlayer)
 		local sound, file = GetSound(multiKillCount)
 		if sound then PlaySoundFile(sound, "Master") end
 		ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
-		ChatAnnounce(mk.text)
 	end
 
 	if isPlayer and db.spreeAnnounce then
@@ -252,7 +235,6 @@ local function OnKill(isPlayer)
 				if spreeSound then PlaySoundFile(spreeSound, "Master") end
 				ShowAnnounce(spree.text, spree.r, spree.g, spree.b, spreeFile)
 			end)
-			ChatAnnounce(spree.text)
 		end
 	end
 end
@@ -261,7 +243,7 @@ end
 
 MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 	if ev == "PLAYER_LOGIN" then
-		IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+		IS_RETAIL = (WOW_PROJECT_ID == 1)
 		playerGUID = UnitGUID("player")
 		MegaKill_Config = MegaKill_Config or {}
 		for k, v in pairs(DEFAULTS) do
@@ -288,20 +270,12 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		if spreeCount >= 5 then
 			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
 			print(PREFIX .. " " .. endMsg)
-			ChatAnnounce(endMsg)
 		end
 		spreeCount = 0
 		ResetMultiKill()
 
 	elseif ev == "PLAYER_ALIVE" then
 		ResetMultiKill()
-
-	elseif ev == "PLAYER_REGEN_ENABLED" then
-		-- Flush chat queue (Classic)
-		while #chatQueue > 0 do
-			local msg = table.remove(chatQueue, 1)
-			SendChatMessage(msg.text, msg.channel)
-		end
 
 	elseif ev == "UNIT_DIED" then
 		-- Retail 12.0+: UNIT_DIED fires when a unit dies near the player.
@@ -385,9 +359,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
-		if not IS_RETAIL then
-			print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
-		end
 		print("  Sound:       " .. (db.sound and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
