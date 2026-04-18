@@ -264,7 +264,7 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		announceText:SetShadowOffset(2, -2)
 		announceText:SetShadowColor(0, 0, 0, 1)
 
-		print(PREFIX .. " |cffffd700v1.0.7|r loaded — type |cffffd700/mk help|r for commands.")
+		print(PREFIX .. " |cffffd700v1.0.8|r loaded — type |cffffd700/mk help|r for commands.")
 
 	elseif ev == "PLAYER_DEAD" then
 		if spreeCount >= 5 then
