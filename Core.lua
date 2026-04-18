@@ -7,7 +7,6 @@ local MK_Frame = CreateFrame("Frame")
 MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
-MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 -- Version check at file scope (before any callback)
 local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 if IS_RETAIL_PRECHECK then
@@ -20,8 +19,6 @@ end
 local DEFAULTS = {
 	enabled        = true,
 	screenAnnounce = true,
-	chatAnnounce   = false,
-	chatChannel    = "PARTY",
 	soundPack      = "Unreal_Theme",
 	killWindow     = 15,
 	onlyPvP        = false,
@@ -202,27 +199,7 @@ end
 
 -- ── Chat queue (Classic only) ─────────────────────────────────────────────────
 
-local chatQueue = {}
-
-local function IsChannelAvailable(ch)
-	if ch == "BATTLEGROUND" then
-		return UnitInBattleground and UnitInBattleground("player")
-	elseif ch == "INSTANCE_CHAT" then
-		return IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
-	elseif ch == "RAID" then
-		return IsInRaid and IsInRaid()
-	elseif ch == "PARTY" then
-		return IsInGroup and IsInGroup()
-	end
-	return true
-end
-
-local function ChatAnnounce(text)
-	if IS_RETAIL then return end
-	if not db or not db.chatAnnounce then return end
-	local ch = db.chatChannel
 	if not IsChannelAvailable(ch) then return end
-	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = ch })
 end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
@@ -250,7 +227,6 @@ local function OnKill(isPlayer)
 		local sound, file = GetSound(multiKillCount)
 		if sound then PlaySoundFile(sound, "Master") end
 		ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
-		ChatAnnounce(mk.text)
 	end
 
 	if isPlayer and db.spreeAnnounce then
@@ -262,7 +238,6 @@ local function OnKill(isPlayer)
 				if spreeSound then PlaySoundFile(spreeSound, "Master") end
 				ShowAnnounce(spree.text, spree.r, spree.g, spree.b, spreeFile)
 			end)
-			ChatAnnounce(spree.text)
 		end
 	end
 end
@@ -298,7 +273,6 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		if spreeCount >= 5 then
 			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
 			print(PREFIX .. " " .. endMsg)
-			ChatAnnounce(endMsg)
 		end
 		spreeCount = 0
 		ResetMultiKill()
@@ -306,16 +280,6 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 	elseif ev == "PLAYER_ALIVE" then
 		ResetMultiKill()
 
-	elseif ev == "PLAYER_REGEN_ENABLED" then
-		-- Flush chat queue (Classic) — re-validate channel before sending
-		local remaining = {}
-		while #chatQueue > 0 do
-			local msg = table.remove(chatQueue, 1)
-			if IsChannelAvailable(msg.channel) then
-				local ok, err = pcall(SendChatMessage, msg.text, msg.channel)
-				if not ok then
-					print(PREFIX .. " Chat error: " .. tostring(err))
-				end
 			end
 		end
 
@@ -401,9 +365,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
-		if not IS_RETAIL then
-			print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
-		end
 		print("  Sound:       " .. (db.sound and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")

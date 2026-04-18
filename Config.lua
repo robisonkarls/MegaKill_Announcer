@@ -164,46 +164,9 @@ local function CreateConfigPanel()
 
 	yOffset = yOffset - 34
 
-	if not IS_RETAIL then
-		CreateCheckbox("Broadcast to Chat",
-			"Send kill announcements to a chat channel.",
-			function() return db.chatAnnounce end,
-			function(v) db.chatAnnounce = v end)
-	end
 
 	yOffset = yOffset - 4
 
-	-- ── Chat Channel (Classic only) ───────────────────────────────────────────
-
-	local channelBtn
-	if not IS_RETAIL then
-		SectionHeader("Chat Channel")
-
-		local channelNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		channelNote:SetPoint("TOPLEFT", 20, yOffset)
-		channelNote:SetText("Broadcast kills to:")
-		yOffset = yOffset - 24
-
-		channelBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-		channelBtn:SetPoint("TOPLEFT", 20, yOffset)
-		channelBtn:SetSize(180, 26)
-
-		local CHANNELS = {"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"}
-		local function RefreshChannel()
-			channelBtn:SetText(db.chatChannel .. "  ▾")
-		end
-		channelBtn:SetScript("OnClick", function()
-			local cur = db.chatChannel
-			local idx = 1
-			for i, v in ipairs(CHANNELS) do if v == cur then idx = i break end end
-			idx = (idx % #CHANNELS) + 1
-			db.chatChannel = CHANNELS[idx]
-			RefreshChannel()
-		end)
-		RefreshChannel()
-		channelBtn.Refresh = RefreshChannel
-		yOffset = yOffset - 36
-	end
 
 	-- ── Sound Pack ────────────────────────────────────────────────────────────
 
@@ -337,7 +300,6 @@ local function CreateConfigPanel()
 
 	panel:SetScript("OnShow", function()
 		for _, cb in ipairs(checkboxes) do cb:Refresh() end
-		if channelBtn then channelBtn.Refresh() end
 		windowSlider:SetValue(db.killWindow)
 		UpdatePackLabel()
 	end)
