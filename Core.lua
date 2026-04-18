@@ -1,4 +1,5 @@
 local PREFIX = "|cffff7d0aMegaKill|r"
+local IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 -- Default settings
 local DEFAULTS = {
@@ -163,6 +164,7 @@ local function GetSafeChannel(requested)
 end
 
 local function ChatAnnounce(text)
+	if IS_RETAIL then return end  -- chat announce not supported on Retail
 	if not db.chatAnnounce then return end
 	local channel = GetSafeChannel(db.chatChannel)
 	if not channel then return end
@@ -223,7 +225,8 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
 
 	-- Init frames now that addon environment is fully loaded
 	InitAnnounceFrame()
-	InitChatFrame()
+	-- Chat queue (Classic only)
+	if not IS_RETAIL then InitChatFrame() end
 
 	-- Detect correct combat log event for this WoW version
 	local combatLogEvent = "COMBAT_LOG_EVENT_UNFILTERED"
