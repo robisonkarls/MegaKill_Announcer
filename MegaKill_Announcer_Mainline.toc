@@ -5,6 +5,7 @@
 ## Version: 1.0.4
 ## SavedVariables: MegaKill_Config
 
+Bootstrap.xml
 Core.lua
 StreakBar.lua
 Config.lua

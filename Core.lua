@@ -58,7 +58,7 @@ local SOUND_PACKS = {
 	},
 }
 
--- State (all set during PLAYER_LOGIN)
+-- State
 local db
 local playerGUID
 local multiKillCount = 0
@@ -121,7 +121,6 @@ local chatQueue = {}
 local function ChatAnnounce(text)
 	if IS_RETAIL then return end
 	if not db or not db.chatAnnounce then return end
-	local channel
 	local ch = db.chatChannel
 	if ch == "BATTLEGROUND" and not UnitInBattleground("player") then return end
 	if ch == "INSTANCE_CHAT" and not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return end
@@ -170,19 +169,13 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Initialization via PLAYER_LOGIN ──────────────────────────────────────────
--- We register only for PLAYER_LOGIN at top level (safe on all versions).
--- Everything else is set up from inside that handler.
+-- ── Bootstrap — called by Bootstrap.xml OnEvent ───────────────────────────────
+-- No top-level CreateFrame or RegisterEvent in Lua — all done via XML or here.
 
-local bootFrame = CreateFrame("Frame")
-bootFrame:RegisterEvent("PLAYER_LOGIN")
-bootFrame:SetScript("OnEvent", function(self)
-	self:UnregisterEvent("PLAYER_LOGIN")
-
-	-- Detect version safely inside event handler
+function MegaKill_OnPlayerLogin()
 	IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
-	-- Init db
+	-- Init SavedVariables
 	playerGUID = UnitGUID("player")
 	MegaKill_Config = MegaKill_Config or {}
 	for k, v in pairs(DEFAULTS) do
@@ -203,7 +196,7 @@ bootFrame:SetScript("OnEvent", function(self)
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
 
-	-- Chat queue flush frame (Classic only)
+	-- Chat flush frame (Classic only)
 	if not IS_RETAIL then
 		local chatFrame = CreateFrame("Frame")
 		chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -215,14 +208,14 @@ bootFrame:SetScript("OnEvent", function(self)
 		end)
 	end
 
-	-- Combat + death events
+	-- Combat event frame
 	local eventFrame = CreateFrame("Frame")
 	eventFrame:RegisterEvent("PLAYER_DEAD")
 	eventFrame:RegisterEvent("PLAYER_ALIVE")
 
-	-- On Retail 12.0+ combat log is protected — use UNIT_DIED directly
-	-- On Classic use COMBAT_LOG_EVENT_UNFILTERED
 	if IS_RETAIL then
+		-- COMBAT_LOG_EVENT_UNFILTERED is protected on Retail 12.0+
+		-- Use UNIT_DIED instead — fires when any unit dies near the player
 		eventFrame:RegisterEvent("UNIT_DIED")
 	else
 		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -242,11 +235,8 @@ bootFrame:SetScript("OnEvent", function(self)
 			ResetMultiKill()
 
 		elseif ev == "UNIT_DIED" then
-			-- Retail: args are (unitToken) — check if it was killed by the player
-			-- We can't get sourceGUID from UNIT_DIED, so track via UNIT_TARGET instead.
-			-- Use the simpler approach: any unit death while player is in combat counts.
 			local unitToken = ...
-			if unitToken and UnitIsEnemy("player", unitToken) then
+			if unitToken and UnitExists(unitToken) and UnitIsEnemy("player", unitToken) then
 				local isPlayer = UnitIsPlayer(unitToken)
 				OnKill(isPlayer)
 			end
@@ -263,7 +253,7 @@ bootFrame:SetScript("OnEvent", function(self)
 	end)
 
 	print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
-end)
+end
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
 
