@@ -181,7 +181,7 @@ end
 
 -- ── Bootstrap ───────────────────────────────────────────────────────────────
 
-MK_Frame:SetScript("OnEvent", function(_, ev)
+MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 	if ev == "PLAYER_LOGIN" then
 		IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 		playerGUID = UnitGUID("player")
