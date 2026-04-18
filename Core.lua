@@ -214,9 +214,9 @@ function MegaKill_OnPlayerLogin()
 	eventFrame:RegisterEvent("PLAYER_ALIVE")
 
 	if IS_RETAIL then
-		-- COMBAT_LOG_EVENT_UNFILTERED is protected on Retail 12.0+
-		-- Use UNIT_DIED instead — fires when any unit dies near the player
-		eventFrame:RegisterEvent("UNIT_DIED")
+		-- On Retail 12.0+, COMBAT_LOG_EVENT (no _UNFILTERED suffix) is the correct
+		-- non-protected event. CombatLogGetCurrentEventInfo() still works inside it.
+		eventFrame:RegisterEvent("COMBAT_LOG_EVENT")
 	else
 		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 	end
@@ -234,20 +234,11 @@ function MegaKill_OnPlayerLogin()
 		elseif ev == "PLAYER_ALIVE" then
 			ResetMultiKill()
 
-		elseif ev == "UNIT_DIED" then
-			local unitToken = ...
-			if unitToken and UnitExists(unitToken) and UnitIsEnemy("player", unitToken) then
-				local isPlayer = UnitIsPlayer(unitToken)
-				OnKill(isPlayer)
-			end
-
-		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+		elseif ev == "COMBAT_LOG_EVENT" or ev == "COMBAT_LOG_EVENT_UNFILTERED" then
 			local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
-			if sourceGUID == playerGUID then
+			if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
 				local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
-				if subEvent == "PARTY_KILL" or subEvent == "UNIT_DIED" then
-					OnKill(isPlayer)
-				end
+				OnKill(isPlayer)
 			end
 		end
 	end)
