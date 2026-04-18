@@ -47,7 +47,7 @@ local SOUND_PACKS = {
 		-- Multi-kill (single = specific, array = random pool)
 		[1]  = { "first_blood.wav" },
 		[2]  = { "double_kill.wav" },
-		[3]  = { "triple_kill.mp3" },
+		[3]  = { "triple_kill.wav" },
 		[4]  = { "mega_kill.wav" },
 		[5]  = { "mega_kill.wav" },
 		[6]  = { "monster_kill.wav" },
@@ -257,9 +257,12 @@ frame:SetScript("OnEvent", function(self, event)
 
 	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" or event == "COMBAT_LOG_EVENT" then
 		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
-		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
+		if sourceGUID == playerGUID then
 			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
-			OnKill(isPlayer)
+			-- PARTY_KILL = PvP kill; UNIT_DIED = mob/NPC kill
+			if subEvent == "PARTY_KILL" or subEvent == "UNIT_DIED" then
+				OnKill(isPlayer)
+			end
 		end
 	end
 end)
