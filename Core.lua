@@ -137,7 +137,6 @@ local function GetSound(key)
 		return nil, nil  -- no spree slots in simple mode
 	end
 	local pool = pack[key]
-	print("|cffff9900MegaKill DEBUG GetSound:|r pack=" .. tostring(db.soundPack) .. " key=" .. tostring(key) .. " pool=" .. tostring(pool) .. " poolsize=" .. (pool and tostring(#pool) or "nil"))
 	if not pool or #pool == 0 then return nil, nil end
 	local file = pool[math.random(#pool)]
 	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
@@ -175,9 +174,6 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	local displayText = text
 	if pack and pack.displayName and soundFile then
 		displayText = FileToDisplayName(soundFile)
-	elseif pack and pack.displayName and not soundFile then
-		-- DEBUG: soundFile was nil, using fallback text
-		print("|cffff0000MegaKill DEBUG:|r soundFile=nil pack=" .. tostring(db.soundPack))
 	end
 	if pack and pack.rainbow then
 		announceText:SetText(RainbowText(displayText))
