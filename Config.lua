@@ -143,40 +143,24 @@ local function CreateConfigPanel()
 
 	SectionHeader("Announcements")
 
-	rowY = yOffset
-	CreateCheckboxAt("Show On-Screen Text",
+	CreateCheckbox("Show On-Screen Text",
 		"Display large coloured text in the centre of your screen on each kill.",
 		function() return db.screenAnnounce end,
-		function(v) db.screenAnnounce = v end, 20, rowY)
-
-	CreateCheckboxAt("Sound Only (no text)",
-		"Play sounds on kills but do not show on-screen text announcements.",
-		function() return db.soundOnly end,
-		function(v) db.soundOnly = v end, 240, rowY)
-
-	yOffset = yOffset - 30
+		function(v) db.screenAnnounce = v end)
 
 	rowY = yOffset
-	CreateCheckboxAt("Play Sound Effects",
-		"Play audio cues for kill milestones.",
-		function() return db.sound end,
-		function(v) db.sound = v end, 20, rowY)
-
 	CreateCheckboxAt("Announce Killing Sprees",
 		"Announce Killing Spree, Rampage, Godlike, etc.",
 		function() return db.spreeAnnounce end,
-		function(v) db.spreeAnnounce = v end, 240, rowY)
+		function(v) db.spreeAnnounce = v end, 20, rowY)
 
-	yOffset = yOffset - 30
-
-	rowY = yOffset
 	CreateCheckboxAt("Show Streak Timer Bar",
 		"Thin progress bar showing time left to chain the next kill.",
 		function() return db.streakBar end,
 		function(v)
 			db.streakBar = v
 			if MegaKill_StreakBar_SetVisible then MegaKill_StreakBar_SetVisible(v) end
-		end, 20, rowY)
+		end, 240, rowY)
 
 	if not IS_RETAIL then
 		CreateCheckboxAt("Broadcast to Chat",

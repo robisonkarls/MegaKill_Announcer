@@ -19,10 +19,8 @@ end
 local DEFAULTS = {
 	enabled        = true,
 	screenAnnounce = true,
-	soundOnly      = false,
 	chatAnnounce   = false,
 	chatChannel    = "PARTY",
-	sound          = true,
 	soundPack      = "Unreal_Theme",
 	killWindow     = 15,
 	onlyPvP        = false,
@@ -129,7 +127,7 @@ end
 -- ── Sound ─────────────────────────────────────────────────────────────────────
 
 local function GetSound(key)
-	if not db or not db.sound then return nil, nil end
+	if not db then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil, nil end
 	-- simpleSlots: cap numeric keys at 5, ignore spree string keys
@@ -166,7 +164,6 @@ local announceFrame, announceText, hideTimer
 -- packFlags: optional table with displayName/rainbow overrides from the sound pack
 local function ShowAnnounce(text, r, g, b, soundFile)
 	if not db or not db.screenAnnounce then return end
-	if db.soundOnly then return end
 	if not announceFrame then return end
 	local pack = SOUND_PACKS[db.soundPack]
 	local displayText = text
