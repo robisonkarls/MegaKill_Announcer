@@ -204,14 +204,24 @@ end
 
 local chatQueue = {}
 
+local function IsChannelAvailable(ch)
+	if ch == "BATTLEGROUND" then
+		return UnitInBattleground and UnitInBattleground("player")
+	elseif ch == "INSTANCE_CHAT" then
+		return IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+	elseif ch == "RAID" then
+		return IsInRaid and IsInRaid()
+	elseif ch == "PARTY" then
+		return IsInGroup and IsInGroup()
+	end
+	return true
+end
+
 local function ChatAnnounce(text)
 	if IS_RETAIL then return end
 	if not db or not db.chatAnnounce then return end
 	local ch = db.chatChannel
-	if ch == "BATTLEGROUND" and not UnitInBattleground("player") then return end
-	if ch == "INSTANCE_CHAT" and not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return end
-	if ch == "RAID" and not IsInRaid() then return end
-	if ch == "PARTY" and not IsInGroup() then return end
+	if not IsChannelAvailable(ch) then return end
 	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = ch })
 end
 
@@ -297,10 +307,16 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		ResetMultiKill()
 
 	elseif ev == "PLAYER_REGEN_ENABLED" then
-		-- Flush chat queue (Classic)
+		-- Flush chat queue (Classic) — re-validate channel before sending
+		local remaining = {}
 		while #chatQueue > 0 do
 			local msg = table.remove(chatQueue, 1)
-			SendChatMessage(msg.text, msg.channel)
+			if IsChannelAvailable(msg.channel) then
+				local ok, err = pcall(SendChatMessage, msg.text, msg.channel)
+				if not ok then
+					print(PREFIX .. " Chat error: " .. tostring(err))
+				end
+			end
 		end
 
 	elseif ev == "UNIT_DIED" then
