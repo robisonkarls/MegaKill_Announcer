@@ -184,6 +184,20 @@ local function CreateConfigPanel()
 
 	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
+	SectionHeader("Sound Pack")
+
+	local packNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	packNote:SetPoint("TOPLEFT", 20, yOffset)
+	packNote:SetText("Announcer voice pack (click to cycle):")
+	yOffset = yOffset - 26
+
+	CreateCycleButton(panel,
+		{"Unreal_Theme", "Flamboyant_theme"},
+		function() return db.soundPack end,
+		function(v) db.soundPack = v end,
+		yOffset)
+	yOffset = yOffset - 36
+
 	SectionHeader("Multi-Kill Time Window")
 
 	local windowNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
