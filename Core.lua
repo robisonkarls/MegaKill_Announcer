@@ -174,6 +174,9 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	local displayText = text
 	if pack and pack.displayName and soundFile then
 		displayText = FileToDisplayName(soundFile)
+	elseif pack and pack.displayName and not soundFile then
+		-- DEBUG: soundFile was nil, using fallback text
+		print("|cffff0000MegaKill DEBUG:|r soundFile=nil pack=" .. tostring(db.soundPack))
 	end
 	if pack and pack.rainbow then
 		announceText:SetText(RainbowText(displayText))
