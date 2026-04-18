@@ -197,10 +197,6 @@ function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
 	ShowAnnounce(text, r, g, b, soundFile)
 end
 
--- ── Chat queue (Classic only) ─────────────────────────────────────────────────
-
-	if not IsChannelAvailable(ch) then return end
-end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
 
