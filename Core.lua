@@ -79,7 +79,7 @@ local SOUND_PACKS = {
 		[6] = { "Homecidal.wav", "Uuuuu_Scary.wav" },
 		[7] = { "rainbow_warrior.wav", "Hoooo_Noooo.wav" },
 		[8] = { "Like_Oh_EME_Jay.wav", "big_bear.wav" },
-		[9] = { "Savage_Hoooo.wav", "YaaaaaYyy.wav" },
+		[9] = { "YaaaaaYyy.wav" },
 		-- Killing spree milestones
 		Killing_Spree = { "Gotcha.wav", "Hoo_hu_huuu.wav" },
 		Rampage       = { "CANT_TOUCH_THIS.wav" },
