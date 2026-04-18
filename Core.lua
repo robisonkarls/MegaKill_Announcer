@@ -190,8 +190,8 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	end)
 end
 
-function MegaKill_ShowAnnounce(text, r, g, b)
-	ShowAnnounce(text, r, g, b)
+function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
+	ShowAnnounce(text, r, g, b, soundFile)
 end
 
 -- ── Chat queue (Classic only) ─────────────────────────────────────────────────
