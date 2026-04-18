@@ -210,7 +210,7 @@ local function CreateConfigPanel()
 	SectionHeader("Sound Pack")
 
 	local SOUND_PACK_LIST   = { "Unreal_Theme", "Flamboyant_theme" }
-	local SOUND_PACK_LABELS = { Unreal_Theme = "Unreal Tournament", Flamboyant_theme = "Flamboyant" }
+	local SOUND_PACK_LABELS = { Unreal_Theme = "Unreal Tournament", Flamboyant_theme = "Heroes of Newerth - Flamboyant" }
 
 	local packNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	packNote:SetPoint("TOPLEFT", 20, yOffset)
