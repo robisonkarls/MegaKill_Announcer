@@ -95,7 +95,7 @@ end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
-local announceFrame = CreateFrame("Frame", "MegaKill_AnnounceFrame", UIParent)
+local announceFrame = CreateFrame("Frame", nil, UIParent)
 announceFrame:SetSize(500, 80)
 announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
 announceFrame:SetFrameStrata("HIGH")
@@ -219,7 +219,7 @@ end
 
 -- ── Events ────────────────────────────────────────────────────────────────────
 
-local frame = CreateFrame("Frame", "MegaKill_Frame")
+local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_DEAD")
 frame:RegisterEvent("PLAYER_ALIVE")
