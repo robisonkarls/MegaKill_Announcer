@@ -139,6 +139,11 @@ local function CreateConfigPanel()
 		function() return db.sound end,
 		function(v) db.sound = v end)
 
+	CreateCheckbox("Sound Only (no on-screen text)",
+		"Play sounds on kills but do not show on-screen text announcements.",
+		function() return db.soundOnly end,
+		function(v) db.soundOnly = v end)
+
 	CreateCheckbox("Announce Killing Sprees",
 		"Announce Killing Spree, Rampage, Godlike, etc.",
 		function() return db.spreeAnnounce end,
@@ -280,19 +285,6 @@ local function CreateConfigPanel()
 	previewNote:SetText("Click to preview an announcement:")
 	yOffset = yOffset - 30
 
-	-- Sound-only toggle
-	local soundOnlyCheck = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-	soundOnlyCheck:SetPoint("TOPLEFT", 20, yOffset)
-	soundOnlyCheck:SetSize(24, 24)
-	local soundOnlyLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	soundOnlyLabel:SetPoint("LEFT", soundOnlyCheck, "RIGHT", 4, 0)
-	soundOnlyLabel:SetText("Sound only (no text)")
-	local soundOnly = false
-	soundOnlyCheck:SetScript("OnClick", function(self)
-		soundOnly = self:GetChecked()
-	end)
-	yOffset = yOffset - 30
-
 	-- Preview buttons — use selected pack, slots 1/2/3
 	local tests = {
 		{ label = "Kill 1", idx = 1, text = "First Blood!",  r = 1.0, g = 1.0, b = 1.0 },
@@ -308,7 +300,7 @@ local function CreateConfigPanel()
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
 			if MegaKill_PlayMilestoneSound then MegaKill_PlayMilestoneSound(t.idx) end
-			if not soundOnly and MegaKill_ShowAnnounce then
+			if MegaKill_ShowAnnounce then
 				local soundFile = MegaKill_GetSoundFile and MegaKill_GetSoundFile(t.idx)
 				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b, soundFile)
 			end

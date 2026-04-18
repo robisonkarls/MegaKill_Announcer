@@ -19,6 +19,7 @@ end
 local DEFAULTS = {
 	enabled        = true,
 	screenAnnounce = true,
+	soundOnly      = false,
 	chatAnnounce   = false,
 	chatChannel    = "PARTY",
 	sound          = true,
@@ -165,6 +166,7 @@ local announceFrame, announceText, hideTimer
 -- packFlags: optional table with displayName/rainbow overrides from the sound pack
 local function ShowAnnounce(text, r, g, b, soundFile)
 	if not db or not db.screenAnnounce then return end
+	if db.soundOnly then return end
 	if not announceFrame then return end
 	local pack = SOUND_PACKS[db.soundPack]
 	local displayText = text
