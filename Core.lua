@@ -219,11 +219,15 @@ end
 
 -- ── Events ────────────────────────────────────────────────────────────────────
 
+-- COMBAT_LOG_EVENT_UNFILTERED is protected on Retail 12.0+
+-- Use COMBAT_LOG_EVENT instead (available on all versions)
+local combatLogEvent = (select(4, GetBuildInfo()) >= 120000) and "COMBAT_LOG_EVENT" or "COMBAT_LOG_EVENT_UNFILTERED"
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_DEAD")
 frame:RegisterEvent("PLAYER_ALIVE")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+frame:RegisterEvent(combatLogEvent)
 
 frame:SetScript("OnEvent", function(self, event)
 	if event == "PLAYER_LOGIN" then
@@ -251,7 +255,7 @@ frame:SetScript("OnEvent", function(self, event)
 	elseif event == "PLAYER_ALIVE" then
 		ResetMultiKill()
 
-	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" or event == "COMBAT_LOG_EVENT" then
 		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
 		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
 			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
