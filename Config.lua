@@ -280,23 +280,40 @@ local function CreateConfigPanel()
 	previewNote:SetText("Click to preview an announcement:")
 	yOffset = yOffset - 30
 
+	-- Sound-only toggle
+	local soundOnlyCheck = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+	soundOnlyCheck:SetPoint("TOPLEFT", 20, yOffset)
+	soundOnlyCheck:SetSize(24, 24)
+	local soundOnlyLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	soundOnlyLabel:SetPoint("LEFT", soundOnlyCheck, "RIGHT", 4, 0)
+	soundOnlyLabel:SetText("Sound only (no text)")
+	local soundOnly = false
+	soundOnlyCheck:SetScript("OnClick", function(self)
+		soundOnly = self:GetChecked()
+	end)
+	yOffset = yOffset - 30
+
+	-- Preview buttons — use selected pack, slots 1/2/3
 	local tests = {
-		{ label = "Double Kill",  idx = 2, text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
-		{ label = "Triple Kill",  idx = 3, text = "Triple Kill!",  r = 1.0, g = 0.5, b = 0.0 },
-		{ label = "Monster Kill", idx = 6, text = "Monster Kill!", r = 0.6, g = 0.0, b = 1.0 },
+		{ label = "Kill 1", idx = 1, text = "First Blood!",  r = 1.0, g = 1.0, b = 1.0 },
+		{ label = "Kill 2", idx = 2, text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
+		{ label = "Kill 3", idx = 3, text = "Triple Kill!",  r = 1.0, g = 0.5, b = 0.0 },
 	}
 
 	local xPos = 20
 	for _, t in ipairs(tests) do
 		local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 		btn:SetPoint("TOPLEFT", xPos, yOffset)
-		btn:SetSize(130, 26)
+		btn:SetSize(110, 26)
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
-			if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b) end
 			if MegaKill_PlayMilestoneSound then MegaKill_PlayMilestoneSound(t.idx) end
+			if not soundOnly and MegaKill_ShowAnnounce then
+				local soundFile = MegaKill_GetSoundFile and MegaKill_GetSoundFile(t.idx)
+				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b, soundFile)
+			end
 		end)
-		xPos = xPos + 140
+		xPos = xPos + 120
 	end
 
 	-- ── Refresh on show ───────────────────────────────────────────────────────
