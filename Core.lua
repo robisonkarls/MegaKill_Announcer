@@ -169,8 +169,7 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Bootstrap — called by Bootstrap.xml OnEvent ───────────────────────────────
--- No top-level CreateFrame or RegisterEvent in Lua — all done via XML or here.
+-- ── Bootstrap — called by Bootstrap.xml OnEvent ─────────────────────────────
 
 function MegaKill_OnPlayerLogin()
 	IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
@@ -196,40 +195,59 @@ function MegaKill_OnPlayerLogin()
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
 
-	-- Chat flush (Classic only) — frame declared in XML, handler wired here
-	if not IS_RETAIL and MegaKill_ChatFrame then
-		MegaKill_ChatFrame:SetScript("OnEvent", function()
+	-- ── Event handlers via EventRegistry (no frame, no taint) ────────────────
+	-- EventRegistry:RegisterFrameEventAndCallback is the Retail 10.0+ API.
+	-- Falls back to a plain frame on Classic where EventRegistry may not exist.
+
+	local function onCombatLog()
+		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
+		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
+			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
+			OnKill(isPlayer)
+		end
+	end
+
+	local function onPlayerDead()
+		if spreeCount >= 5 then
+			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
+			print(PREFIX .. " " .. endMsg)
+			ChatAnnounce(endMsg)
+		end
+		spreeCount = 0
+		ResetMultiKill()
+	end
+
+	if IS_RETAIL and EventRegistry then
+		-- Modern API: no frame creation or RegisterEvent needed
+		EventRegistry:RegisterFrameEventAndCallback("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog, MegaKill_Announcer)
+		EventRegistry:RegisterFrameEventAndCallback("PLAYER_DEAD", onPlayerDead, MegaKill_Announcer)
+		EventRegistry:RegisterFrameEventAndCallback("PLAYER_ALIVE", ResetMultiKill, MegaKill_Announcer)
+	else
+		-- Classic: plain frame is fine
+		local eventFrame = CreateFrame("Frame")
+		eventFrame:RegisterEvent("PLAYER_DEAD")
+		eventFrame:RegisterEvent("PLAYER_ALIVE")
+		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		eventFrame:SetScript("OnEvent", function(_, ev)
+			if ev == "PLAYER_DEAD" then
+				onPlayerDead()
+			elseif ev == "PLAYER_ALIVE" then
+				ResetMultiKill()
+			elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+				onCombatLog()
+			end
+		end)
+
+		-- Classic chat flush frame
+		local chatFrame = CreateFrame("Frame")
+		chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+		chatFrame:SetScript("OnEvent", function()
 			while #chatQueue > 0 do
 				local msg = table.remove(chatQueue, 1)
 				SendChatMessage(msg.text, msg.channel)
 			end
 		end)
 	end
-
-	-- MegaKill_EventFrame is declared in Bootstrap.xml (untainted).
-	-- Events (PLAYER_DEAD, PLAYER_ALIVE, COMBAT_LOG_EVENT_UNFILTERED) are
-	-- registered there via OnLoad — safe on both Classic and Retail 12.0+.
-	MegaKill_EventFrame:SetScript("OnEvent", function(_, ev)
-		if ev == "PLAYER_DEAD" then
-			if spreeCount >= 5 then
-				local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
-				print(PREFIX .. " " .. endMsg)
-				ChatAnnounce(endMsg)
-			end
-			spreeCount = 0
-			ResetMultiKill()
-
-		elseif ev == "PLAYER_ALIVE" then
-			ResetMultiKill()
-
-		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
-			local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
-			if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
-				local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
-				OnKill(isPlayer)
-			end
-		end
-	end)
 
 	print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
 end
