@@ -25,7 +25,7 @@ jobs:
           mkdir -p package/MegaKill_Announcer
           
           # Copy only addon files needed in-game
-          cp Core.lua Config.lua StreakBar.lua package/MegaKill_Announcer/
+          cp Core.lua Config.lua StreakBar.lua Bootstrap.xml package/MegaKill_Announcer/
           cp MegaKill_Announcer_Classic.toc package/MegaKill_Announcer/
           cp MegaKill_Announcer_Mainline.toc package/MegaKill_Announcer/
           cp -r assets/ package/MegaKill_Announcer/

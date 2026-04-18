@@ -2,14 +2,10 @@
 
 local ADDON_NAME = "MegaKill_Announcer"
 local PREFIX = "|cffff7d0aMegaKill|r"
+local IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 local configPanel = nil
 local configCategory = nil
-
--- ── Retail version check ──────────────────────────────────────────────────────
-
-local isRetailNew = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and
-	(select(4, GetBuildInfo()) >= 100000)
 
 -- ── Open the config panel ─────────────────────────────────────────────────────
 
@@ -105,9 +101,7 @@ local function CreateConfigPanel()
 			GameTooltip:Show()
 		end)
 		check:SetScript("OnLeave", function() GameTooltip:Hide() end)
-		check:SetScript("OnClick", function(self)
-			setter(self:GetChecked())
-		end)
+		check:SetScript("OnClick", function(self) setter(self:GetChecked()) end)
 		check.Refresh = function() check:SetChecked(getter()) end
 		table.insert(checkboxes, check)
 
@@ -125,7 +119,7 @@ local function CreateConfigPanel()
 		function(v) db.enabled = v end)
 
 	CreateCheckbox("PvP Kills Only  (Honorable Kills)",
-		"Only track player kills.",
+		"Only track player kills. Disabling counts all kills including mobs.",
 		function() return db.onlyPvP end,
 		function(v) db.onlyPvP = v end)
 
@@ -136,7 +130,7 @@ local function CreateConfigPanel()
 	SectionHeader("Announcements")
 
 	CreateCheckbox("Show On-Screen Text",
-		"Display large coloured text on each kill.",
+		"Display large coloured text in the centre of your screen on each kill.",
 		function() return db.screenAnnounce end,
 		function(v) db.screenAnnounce = v end)
 
@@ -150,11 +144,6 @@ local function CreateConfigPanel()
 		function() return db.spreeAnnounce end,
 		function(v) db.spreeAnnounce = v end)
 
-	CreateCheckbox("Broadcast to Chat",
-		"Send kill announcements to a chat channel.",
-		function() return db.chatAnnounce end,
-		function(v) db.chatAnnounce = v end)
-
 	CreateCheckbox("Show Streak Timer Bar",
 		"Thin progress bar showing time left to chain the next kill.",
 		function() return db.streakBar end,
@@ -163,23 +152,35 @@ local function CreateConfigPanel()
 			if MegaKill_StreakBar_SetVisible then MegaKill_StreakBar_SetVisible(v) end
 		end)
 
+	-- Chat announce — Classic only
+	local chatCheck
+	if not IS_RETAIL then
+		chatCheck = CreateCheckbox("Broadcast to Chat",
+			"Send kill announcements to a chat channel.",
+			function() return db.chatAnnounce end,
+			function(v) db.chatAnnounce = v end)
+	end
+
 	yOffset = yOffset - 8
 
-	-- ── Chat Channel ──────────────────────────────────────────────────────────
+	-- ── Chat Channel (Classic only) ───────────────────────────────────────────
 
-	SectionHeader("Chat Channel")
+	local channelBtn
+	if not IS_RETAIL then
+		SectionHeader("Chat Channel")
 
-	local channelNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	channelNote:SetPoint("TOPLEFT", 20, yOffset)
-	channelNote:SetText("Broadcast kills to (click to cycle):")
-	yOffset = yOffset - 26
+		local channelNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		channelNote:SetPoint("TOPLEFT", 20, yOffset)
+		channelNote:SetText("Broadcast kills to (click to cycle):")
+		yOffset = yOffset - 26
 
-	local channelBtn = CreateCycleButton(panel,
-		{"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"},
-		function() return db.chatChannel end,
-		function(v) db.chatChannel = v end,
-		yOffset)
-	yOffset = yOffset - 36
+		channelBtn = CreateCycleButton(panel,
+			{"PARTY", "RAID", "INSTANCE_CHAT", "BATTLEGROUND"},
+			function() return db.chatChannel end,
+			function(v) db.chatChannel = v end,
+			yOffset)
+		yOffset = yOffset - 36
+	end
 
 	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
@@ -246,7 +247,7 @@ local function CreateConfigPanel()
 
 	panel:SetScript("OnShow", function()
 		for _, cb in ipairs(checkboxes) do cb:Refresh() end
-		channelBtn:Refresh()
+		if channelBtn then channelBtn:Refresh() end
 		windowSlider:SetValue(db.killWindow)
 	end)
 

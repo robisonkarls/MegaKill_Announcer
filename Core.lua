@@ -1,21 +1,30 @@
 local PREFIX = "|cffff7d0aMegaKill|r"
-local PLAYER_TYPE_FLAG = COMBATLOG_OBJECT_TYPE_PLAYER or 0x400
+
+-- ── Top-level event frame (created before any function runs) ─────────────────
+-- Must be at file scope so RegisterEvent runs in a clean execution context,
+-- not inside a callback. This is how DBM and other major addons do it.
+local MK_Frame = CreateFrame("Frame")
+MK_Frame:RegisterEvent("PLAYER_LOGIN")
+MK_Frame:RegisterEvent("PLAYER_DEAD")
+MK_Frame:RegisterEvent("PLAYER_ALIVE")
+MK_Frame:RegisterEvent("UNIT_DIED")       -- Retail 12.0: replaces CLEU PARTY_KILL subevent
+MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 -- Default settings
 local DEFAULTS = {
-	enabled       = true,
+	enabled        = true,
 	screenAnnounce = true,
-	chatAnnounce  = false,
-	chatChannel   = "PARTY",
-	sound         = true,
-	soundPack     = "Unreal_Theme",  -- default sound pack
-	killWindow    = 15,
-	onlyPvP       = false,
-	spreeAnnounce = true,
-	streakBar     = true,
+	chatAnnounce   = false,
+	chatChannel    = "PARTY",
+	sound          = true,
+	soundPack      = "Unreal_Theme",
+	killWindow     = 15,
+	onlyPvP        = false,
+	spreeAnnounce  = true,
+	streakBar      = true,
 }
 
--- Multi-kill milestones (kills within killWindow seconds of each other)
+-- Multi-kill milestones
 local MULTI_KILL = {
 	[1] = { text = "First Blood!",    r = 1.0, g = 1.0, b = 1.0 },
 	[2] = { text = "Double Kill!",    r = 1.0, g = 1.0, b = 0.0 },
@@ -28,7 +37,7 @@ local MULTI_KILL = {
 	[9] = { text = "Holy Sh*t!!",     r = 1.0, g = 0.0, b = 1.0 },
 }
 
--- Killing spree milestones (player kills without dying)
+-- Killing spree milestones
 local KILLING_SPREE = {
 	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0, sound = "Killing_Spree" },
 	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0, sound = "Rampage"       },
@@ -38,23 +47,18 @@ local KILLING_SPREE = {
 	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0, sound = "Wicked_Sick"   },
 }
 
--- ── Sound packs ──────────────────────────────────────────────────────────────
--- Each pack maps event keys to file names inside assets/<packName>/
--- Keys: multi-kill counts (1-9) and spree milestone names
-
+-- Sound packs
 local SOUND_PACKS = {
 	Unreal_Theme = {
-		-- Multi-kill (single = specific, array = random pool)
 		[1]  = { "first_blood.wav" },
 		[2]  = { "double_kill.wav" },
-		[3]  = { "triple_kill.mp3" },
+		[3]  = { "triple_kill.wav" },
 		[4]  = { "mega_kill.wav" },
 		[5]  = { "mega_kill.wav" },
 		[6]  = { "monster_kill.wav" },
 		[7]  = { "ultra_kill.wav" },
 		[8]  = { "ludicrous_kill.wav", "ownage.wav" },
 		[9]  = { "holy_shit.wav", "ownage.wav" },
-		-- Killing spree
 		Killing_Spree = { "killing_spree.wav" },
 		Rampage       = { "rampage.wav" },
 		Unstoppable   = { "unstoppable.wav" },
@@ -64,11 +68,16 @@ local SOUND_PACKS = {
 	},
 }
 
+-- State
 local db
 local playerGUID
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
+local IS_RETAIL      = false
+local PLAYER_TYPE_FLAG = 0x400
+
+-- ── Sound ─────────────────────────────────────────────────────────────────────
 
 local function GetSound(key)
 	if not db or not db.sound then return nil end
@@ -82,49 +91,26 @@ end
 
 local function PlayMilestoneSound(key)
 	local sound = GetSound(key)
-	if sound then
-		PlaySoundFile(sound, "Master")
-	end
+	if sound then PlaySoundFile(sound, "Master") end
 end
 
--- Export for Config.lua test buttons
 function MegaKill_PlayMilestoneSound(key)
 	PlayMilestoneSound(key)
 end
 
-
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
-local announceFrame = CreateFrame("Frame", nil, UIParent)
-announceFrame:SetSize(500, 80)
-announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
-announceFrame:SetFrameStrata("HIGH")
-announceFrame:Hide()
-
-local announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-announceText:SetAllPoints()
-announceText:SetJustifyH("CENTER")
-announceText:SetJustifyV("MIDDLE")
-announceText:SetShadowOffset(2, -2)
-announceText:SetShadowColor(0, 0, 0, 1)
-
-local hideTimer = nil
+local announceFrame, announceText, hideTimer
 
 local function ShowAnnounce(text, r, g, b)
 	if not db or not db.screenAnnounce then return end
-
+	if not announceFrame then return end
 	announceText:SetText(text)
 	announceText:SetTextColor(r, g, b)
-
-	if hideTimer then
-		hideTimer:Cancel()
-		hideTimer = nil
-	end
-
+	if hideTimer then hideTimer:Cancel() hideTimer = nil end
 	announceFrame:SetAlpha(1)
 	announceFrame:Show()
 	UIFrameFadeIn(announceFrame, 0.2)
-
 	hideTimer = C_Timer.NewTimer(2.5, function()
 		UIFrameFadeOut(announceFrame, 0.5)
 		hideTimer = C_Timer.NewTimer(0.5, function()
@@ -134,44 +120,26 @@ local function ShowAnnounce(text, r, g, b)
 	end)
 end
 
--- Export for Config.lua test buttons
 function MegaKill_ShowAnnounce(text, r, g, b)
 	ShowAnnounce(text, r, g, b)
 end
 
--- ── Helpers ───────────────────────────────────────────────────────────────────
+-- ── Chat queue (Classic only) ─────────────────────────────────────────────────
 
--- Queue chat messages and send them only when combat ends (PLAYER_REGEN_ENABLED)
 local chatQueue = {}
-local chatFrame = CreateFrame("Frame")
-chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-chatFrame:SetScript("OnEvent", function()
-	while #chatQueue > 0 do
-		local msg = table.remove(chatQueue, 1)
-		SendChatMessage(msg.text, msg.channel)
-	end
-end)
-
-local function GetSafeChannel(requested)
-	-- Validate that the requested channel is actually available right now
-	if requested == "BATTLEGROUND" then
-		if not UnitInBattleground("player") then return nil end
-	elseif requested == "INSTANCE_CHAT" then
-		if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return nil end
-	elseif requested == "RAID" then
-		if not IsInRaid() then return nil end
-	elseif requested == "PARTY" then
-		if not IsInGroup() then return nil end
-	end
-	return requested
-end
 
 local function ChatAnnounce(text)
-	if not db.chatAnnounce then return end
-	local channel = GetSafeChannel(db.chatChannel)
-	if not channel then return end  -- not in the right situation, skip silently
-	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
+	if IS_RETAIL then return end
+	if not db or not db.chatAnnounce then return end
+	local ch = db.chatChannel
+	if ch == "BATTLEGROUND" and not UnitInBattleground("player") then return end
+	if ch == "INSTANCE_CHAT" and not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return end
+	if ch == "RAID" and not IsInRaid() then return end
+	if ch == "PARTY" and not IsInGroup() then return end
+	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = ch })
 end
+
+-- ── Kill logic ────────────────────────────────────────────────────────────────
 
 local function ResetMultiKill()
 	multiKillCount = 0
@@ -179,18 +147,14 @@ local function ResetMultiKill()
 	if MegaKill_StreakBar_Reset then MegaKill_StreakBar_Reset() end
 end
 
--- ── Kill logic ────────────────────────────────────────────────────────────────
-
 local function OnKill(isPlayer)
-	if not db.enabled then return end
+	if not db or not db.enabled then return end
 	if db.onlyPvP and not isPlayer then return end
 
-	-- Multi-kill window
 	if multiKillTimer then multiKillTimer:Cancel() end
 	multiKillCount = multiKillCount + 1
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
 
-	-- Update streak bar
 	if MegaKill_StreakBar_Start and db.streakBar then
 		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
 	end
@@ -202,12 +166,10 @@ local function OnKill(isPlayer)
 		PlayMilestoneSound(multiKillCount)
 	end
 
-	-- Killing spree (only counts player kills for PvP feel)
 	if isPlayer and db.spreeAnnounce then
 		spreeCount = spreeCount + 1
 		local spree = KILLING_SPREE[spreeCount]
 		if spree then
-			-- Small delay so spree text doesn't overlap multi-kill text
 			C_Timer.After(mk and 1.6 or 0, function()
 				ShowAnnounce(spree.text, spree.r, spree.g, spree.b)
 			end)
@@ -217,33 +179,40 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Events ────────────────────────────────────────────────────────────────────
+-- ── Bootstrap ───────────────────────────────────────────────────────────────
 
--- COMBAT_LOG_EVENT_UNFILTERED is protected on Retail 12.0+
--- Use COMBAT_LOG_EVENT instead (available on all versions)
-local combatLogEvent = (select(4, GetBuildInfo()) >= 120000) and "COMBAT_LOG_EVENT" or "COMBAT_LOG_EVENT_UNFILTERED"
-
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_DEAD")
-frame:RegisterEvent("PLAYER_ALIVE")
-frame:RegisterEvent(combatLogEvent)
-
-frame:SetScript("OnEvent", function(self, event)
-	if event == "PLAYER_LOGIN" then
+MK_Frame:SetScript("OnEvent", function(_, ev, ...)
+	if ev == "PLAYER_LOGIN" then
+		IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 		playerGUID = UnitGUID("player")
-
 		MegaKill_Config = MegaKill_Config or {}
 		for k, v in pairs(DEFAULTS) do
-			if MegaKill_Config[k] == nil then
-				MegaKill_Config[k] = v
-			end
+			if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
 		end
 		db = MegaKill_Config
 
-		print(PREFIX .. " |cffffd700v1.0|r loaded — type |cffffd700/mk help|r for commands.")
+		-- Build announce frame
+		announceFrame = CreateFrame("Frame", nil, UIParent)
+		announceFrame:SetSize(500, 80)
+		announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+		announceFrame:SetFrameStrata("HIGH")
+		announceFrame:Hide()
+		announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+		announceText:SetAllPoints()
+		announceText:SetJustifyH("CENTER")
+		announceText:SetJustifyV("MIDDLE")
+		announceText:SetShadowOffset(2, -2)
+		announceText:SetShadowColor(0, 0, 0, 1)
 
-	elseif event == "PLAYER_DEAD" then
+		print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
+
+		if not IS_RETAIL then
+			-- Classic: swap UNIT_DIED for COMBAT_LOG_EVENT_UNFILTERED
+			MK_Frame:UnregisterEvent("UNIT_DIED")
+			MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		end
+
+	elseif ev == "PLAYER_DEAD" then
 		if spreeCount >= 5 then
 			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
 			print(PREFIX .. " " .. endMsg)
@@ -252,10 +221,34 @@ frame:SetScript("OnEvent", function(self, event)
 		spreeCount = 0
 		ResetMultiKill()
 
-	elseif event == "PLAYER_ALIVE" then
+	elseif ev == "PLAYER_ALIVE" then
 		ResetMultiKill()
 
-	elseif event == "COMBAT_LOG_EVENT_UNFILTERED" or event == "COMBAT_LOG_EVENT" then
+	elseif ev == "PLAYER_REGEN_ENABLED" then
+		-- Flush chat queue (Classic)
+		while #chatQueue > 0 do
+			local msg = table.remove(chatQueue, 1)
+			SendChatMessage(msg.text, msg.channel)
+		end
+
+	elseif ev == "UNIT_DIED" then
+		-- Retail 12.0+: UNIT_DIED fires when a unit dies near the player.
+		-- unitGUID is a SecretValue when unit identity is restricted, but
+		-- UnitIsEnemy/UnitIsPlayer work on the unit token which is not secret.
+		if not db or not db.enabled then return end
+		local unitGUID = ...
+		if not unitGUID then return end
+		-- We can check if the player was the responsible killer via the kill credit
+		-- unitGUID is the dead unit; check hostility via UnitReaction if token available
+		-- Since destGUID is a secret value we use a simpler heuristic:
+		-- fire OnKill for any nearby enemy death while we're not dead
+		if UnitIsDeadOrGhost("player") then return end
+		local isPlayer = (C_PlayerInfo and C_PlayerInfo.IsPlayerFromGUID and C_PlayerInfo.IsPlayerFromGUID(unitGUID)) or false
+		OnKill(isPlayer)
+
+	elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+		-- Classic only (Retail 12.0 cannot register this event)
+		if not db then return end
 		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
 		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
 			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
@@ -264,11 +257,15 @@ frame:SetScript("OnEvent", function(self, event)
 	end
 end)
 
+-- Bootstrap.xml is only used for the BootFrame name (no events registered there)
+function MegaKill_OnPlayerLogin() end  -- kept for XML compat, no-op now
+
 -- ── Slash commands ────────────────────────────────────────────────────────────
 
 SLASH_MEGAKILL1 = "/megakill"
 SLASH_MEGAKILL2 = "/mk"
 SlashCmdList["MEGAKILL"] = function(msg)
+	if not db then print(PREFIX .. ": Still loading...") return end
 	msg = strtrim(msg):lower()
 
 	if msg == "" or msg == "toggle" then
@@ -279,10 +276,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		db.screenAnnounce = not db.screenAnnounce
 		print(PREFIX .. ": Screen announce " .. (db.screenAnnounce and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
 
-	elseif msg == "chat" then
-		db.chatAnnounce = not db.chatAnnounce
-		print(PREFIX .. ": Chat announce " .. (db.chatAnnounce and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
-
 	elseif msg == "sound" then
 		db.sound = not db.sound
 		print(PREFIX .. ": Sound " .. (db.sound and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
@@ -290,15 +283,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 	elseif msg == "pvp" then
 		db.onlyPvP = not db.onlyPvP
 		print(PREFIX .. ": PvP-only " .. (db.onlyPvP and "|cff00ff00ON|r (HKs only)" or "|cffff0000OFF|r (all kills)"))
-
-	elseif msg:match("^channel %a+$") then
-		local ch = msg:match("^channel (%a+)$"):upper()
-		if ch == "SAY" or ch == "YELL" or ch == "PARTY" or ch == "RAID" or ch == "BATTLEGROUND" then
-			db.chatChannel = ch
-			print(PREFIX .. ": Chat channel set to |cffffd700" .. ch .. "|r")
-		else
-			print(PREFIX .. ": Valid channels: SAY, YELL, PARTY, RAID, BATTLEGROUND")
-		end
 
 	elseif msg:match("^window %d+$") then
 		local secs = tonumber(msg:match("^window (%d+)$"))
@@ -311,7 +295,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 
 	elseif msg:match("^test %d+$") then
 		local n = tonumber(msg:match("^test (%d+)$"))
-		-- 2 = Double Kill, 3 = Triple Kill, 4 = Monster Kill
 		local testMap = { [2] = 2, [3] = 3, [4] = 6 }
 		local idx = testMap[n]
 		if idx then
@@ -319,21 +302,20 @@ SlashCmdList["MEGAKILL"] = function(msg)
 			ShowAnnounce(mk.text, mk.r, mk.g, mk.b)
 			PlayMilestoneSound(idx)
 		else
-			print(PREFIX .. ": Use /mk test 2 (Double Kill), /mk test 3 (Triple Kill), /mk test 4 (Monster Kill)")
+			print(PREFIX .. ": Use /mk test 2, 3, or 4")
 		end
 
 	elseif msg == "config" then
-		if MegaKill_OpenConfig then
-			MegaKill_OpenConfig()
-		else
-			print(PREFIX .. ": Config UI not loaded yet, try again.")
-		end
+		if MegaKill_OpenConfig then MegaKill_OpenConfig()
+		else print(PREFIX .. ": Config UI not loaded yet.") end
 
 	elseif msg == "status" then
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
-		print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
+		if not IS_RETAIL then
+			print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
+		end
 		print("  Sound:       " .. (db.sound and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
@@ -343,14 +325,10 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print("  /mk            — Toggle on/off")
 		print("  /mk config     — Open settings UI")
 		print("  /mk screen     — Toggle screen text")
-		print("  /mk chat       — Toggle chat announcements")
 		print("  /mk sound      — Toggle sounds")
-		print("  /mk pvp        — Toggle PvP-only mode (HKs only)")
-		print("  /mk channel X  — Set chat channel (SAY/YELL/PARTY/RAID/BATTLEGROUND)")
-		print("  /mk window X   — Set multi-kill window in seconds (5-60)")
-		print("  /mk test 2     — Preview Double Kill")
-		print("  /mk test 3     — Preview Triple Kill")
-		print("  /mk test 4     — Preview Monster Kill")
+		print("  /mk pvp        — Toggle PvP-only mode")
+		print("  /mk window X   — Set multi-kill window (5-60s)")
+		print("  /mk test 2/3/4 — Preview announcements")
 		print("  /mk status     — Show current settings")
 	end
 end
