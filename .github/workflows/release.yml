@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 1.0.7)'
+        description: 'Version number (e.g. 1.0.7) — must match an existing git tag'
         required: true
       deploy_curseforge:
         description: 'Deploy to CurseForge'
@@ -30,11 +30,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Tag version if not already tagged
+        run: |
+          git config user.name "Addonis"
+          git config user.email "addonis@megakill.dev"
+          if ! git rev-parse "v${{ github.event.inputs.version }}" >/dev/null 2>&1; then
+            git tag "v${{ github.event.inputs.version }}"
+            git push origin "v${{ github.event.inputs.version }}"
+          fi
+
       - name: Package and Upload
         uses: BigWigsMods/packager@master
         env:
           CF_API_KEY: ${{ github.event.inputs.deploy_curseforge == 'true' && secrets.CF_API_TOKEN || '' }}
           WAGO_API_TOKEN: ${{ github.event.inputs.deploy_wago == 'true' && secrets.WAGO_API_TOKEN || '' }}
           GITHUB_OAUTH: ${{ github.event.inputs.deploy_github == 'true' && secrets.GITHUB_TOKEN || '' }}
-        with:
-          args: -r ${{ github.event.inputs.version }}
