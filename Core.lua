@@ -8,7 +8,8 @@ MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
 -- Version check at file scope (before any callback)
-local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+-- WOW_PROJECT_MAINLINE = 1 always; WOW_PROJECT_CLASSIC = 2; don't rely on constants being defined
+local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == 1)
 if IS_RETAIL_PRECHECK then
 	MK_Frame:RegisterEvent("UNIT_DIED")                   -- Retail 12.0+: replaces CLEU
 else
@@ -242,7 +243,7 @@ end
 
 MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 	if ev == "PLAYER_LOGIN" then
-		IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+		IS_RETAIL = (WOW_PROJECT_ID == 1)
 		playerGUID = UnitGUID("player")
 		MegaKill_Config = MegaKill_Config or {}
 		for k, v in pairs(DEFAULTS) do
