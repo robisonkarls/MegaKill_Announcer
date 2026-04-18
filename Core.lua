@@ -1,5 +1,4 @@
 local PREFIX = "|cffff7d0aMegaKill|r"
-local IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 -- Default settings
 local DEFAULTS = {
@@ -59,13 +58,14 @@ local SOUND_PACKS = {
 	},
 }
 
--- State
+-- State (all set during PLAYER_LOGIN)
 local db
 local playerGUID
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
-local PLAYER_TYPE_FLAG = 0x400  -- COMBATLOG_OBJECT_TYPE_PLAYER
+local IS_RETAIL      = false
+local PLAYER_TYPE_FLAG = 0x400
 
 -- ── Sound ─────────────────────────────────────────────────────────────────────
 
@@ -88,40 +88,19 @@ function MegaKill_PlayMilestoneSound(key)
 	PlayMilestoneSound(key)
 end
 
--- ── Announce frame (created in PLAYER_LOGIN) ──────────────────────────────────
+-- ── Announce frame ────────────────────────────────────────────────────────────
 
-local announceFrame
-local announceText
-local hideTimer
-
-local function InitAnnounceFrame()
-	announceFrame = CreateFrame("Frame", nil, UIParent)
-	announceFrame:SetSize(500, 80)
-	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
-	announceFrame:SetFrameStrata("HIGH")
-	announceFrame:Hide()
-
-	announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-	announceText:SetAllPoints()
-	announceText:SetJustifyH("CENTER")
-	announceText:SetJustifyV("MIDDLE")
-	announceText:SetShadowOffset(2, -2)
-	announceText:SetShadowColor(0, 0, 0, 1)
-end
+local announceFrame, announceText, hideTimer
 
 local function ShowAnnounce(text, r, g, b)
 	if not db or not db.screenAnnounce then return end
 	if not announceFrame then return end
-
 	announceText:SetText(text)
 	announceText:SetTextColor(r, g, b)
-
 	if hideTimer then hideTimer:Cancel() hideTimer = nil end
-
 	announceFrame:SetAlpha(1)
 	announceFrame:Show()
 	UIFrameFadeIn(announceFrame, 0.2)
-
 	hideTimer = C_Timer.NewTimer(2.5, function()
 		UIFrameFadeOut(announceFrame, 0.5)
 		hideTimer = C_Timer.NewTimer(0.5, function()
@@ -135,40 +114,20 @@ function MegaKill_ShowAnnounce(text, r, g, b)
 	ShowAnnounce(text, r, g, b)
 end
 
--- ── Chat queue ────────────────────────────────────────────────────────────────
+-- ── Chat queue (Classic only) ─────────────────────────────────────────────────
 
 local chatQueue = {}
 
-local function InitChatFrame()
-	local chatFrame = CreateFrame("Frame")
-	chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-	chatFrame:SetScript("OnEvent", function()
-		while #chatQueue > 0 do
-			local msg = table.remove(chatQueue, 1)
-			SendChatMessage(msg.text, msg.channel)
-		end
-	end)
-end
-
-local function GetSafeChannel(requested)
-	if requested == "BATTLEGROUND" then
-		if not UnitInBattleground("player") then return nil end
-	elseif requested == "INSTANCE_CHAT" then
-		if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return nil end
-	elseif requested == "RAID" then
-		if not IsInRaid() then return nil end
-	elseif requested == "PARTY" then
-		if not IsInGroup() then return nil end
-	end
-	return requested
-end
-
 local function ChatAnnounce(text)
-	if IS_RETAIL then return end  -- chat announce not supported on Retail
-	if not db.chatAnnounce then return end
-	local channel = GetSafeChannel(db.chatChannel)
-	if not channel then return end
-	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = channel })
+	if IS_RETAIL then return end
+	if not db or not db.chatAnnounce then return end
+	local channel
+	local ch = db.chatChannel
+	if ch == "BATTLEGROUND" and not UnitInBattleground("player") then return end
+	if ch == "INSTANCE_CHAT" and not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return end
+	if ch == "RAID" and not IsInRaid() then return end
+	if ch == "PARTY" and not IsInGroup() then return end
+	table.insert(chatQueue, { text = "[MegaKill] " .. text, channel = ch })
 end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
@@ -180,7 +139,7 @@ local function ResetMultiKill()
 end
 
 local function OnKill(isPlayer)
-	if not db.enabled then return end
+	if not db or not db.enabled then return end
 	if db.onlyPvP and not isPlayer then return end
 
 	if multiKillTimer then multiKillTimer:Cancel() end
@@ -211,50 +170,66 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Main event frame ──────────────────────────────────────────────────────────
+-- ── Initialization via PLAYER_LOGIN ──────────────────────────────────────────
+-- We register only for PLAYER_LOGIN at top level (safe on all versions).
+-- Everything else is set up from inside that handler.
 
--- All frames and RegisterEvent calls are deferred to ADDON_LOADED
--- to avoid taint on Retail 12.0+
+local bootFrame = CreateFrame("Frame")
+bootFrame:RegisterEvent("PLAYER_LOGIN")
+bootFrame:SetScript("OnEvent", function(self)
+	self:UnregisterEvent("PLAYER_LOGIN")
 
-local initFrame = CreateFrame("Frame")
-initFrame:RegisterEvent("ADDON_LOADED")
+	-- Detect version safely inside event handler
+	IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
-initFrame:SetScript("OnEvent", function(self, event, addonName)
-	if addonName ~= "MegaKill_Announcer" then return end
-	self:UnregisterEvent("ADDON_LOADED")
+	-- Init db
+	playerGUID = UnitGUID("player")
+	MegaKill_Config = MegaKill_Config or {}
+	for k, v in pairs(DEFAULTS) do
+		if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
+	end
+	db = MegaKill_Config
 
-	-- Init frames now that addon environment is fully loaded
-	InitAnnounceFrame()
-	-- Chat queue (Classic only)
-	if not IS_RETAIL then InitChatFrame() end
+	-- Build announce frame
+	announceFrame = CreateFrame("Frame", nil, UIParent)
+	announceFrame:SetSize(500, 80)
+	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+	announceFrame:SetFrameStrata("HIGH")
+	announceFrame:Hide()
+	announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	announceText:SetAllPoints()
+	announceText:SetJustifyH("CENTER")
+	announceText:SetJustifyV("MIDDLE")
+	announceText:SetShadowOffset(2, -2)
+	announceText:SetShadowColor(0, 0, 0, 1)
 
-	-- Detect correct combat log event for this WoW version
-	local combatLogEvent = "COMBAT_LOG_EVENT_UNFILTERED"
-	if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and select(4, GetBuildInfo()) >= 120000 then
-		combatLogEvent = "COMBAT_LOG_EVENT"
+	-- Chat queue flush frame (Classic only)
+	if not IS_RETAIL then
+		local chatFrame = CreateFrame("Frame")
+		chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+		chatFrame:SetScript("OnEvent", function()
+			while #chatQueue > 0 do
+				local msg = table.remove(chatQueue, 1)
+				SendChatMessage(msg.text, msg.channel)
+			end
+		end)
 	end
 
-	local frame = CreateFrame("Frame")
-	frame:RegisterEvent("PLAYER_LOGIN")
-	frame:RegisterEvent("PLAYER_DEAD")
-	frame:RegisterEvent("PLAYER_ALIVE")
-	frame:RegisterEvent(combatLogEvent)
+	-- Combat + death events
+	local eventFrame = CreateFrame("Frame")
+	eventFrame:RegisterEvent("PLAYER_DEAD")
+	eventFrame:RegisterEvent("PLAYER_ALIVE")
 
-	frame:SetScript("OnEvent", function(_, ev)
-		if ev == "PLAYER_LOGIN" then
-			playerGUID = UnitGUID("player")
+	-- On Retail 12.0+ combat log is protected — use UNIT_DIED directly
+	-- On Classic use COMBAT_LOG_EVENT_UNFILTERED
+	if IS_RETAIL then
+		eventFrame:RegisterEvent("UNIT_DIED")
+	else
+		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	end
 
-			MegaKill_Config = MegaKill_Config or {}
-			for k, v in pairs(DEFAULTS) do
-				if MegaKill_Config[k] == nil then
-					MegaKill_Config[k] = v
-				end
-			end
-			db = MegaKill_Config
-
-			print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
-
-		elseif ev == "PLAYER_DEAD" then
+	eventFrame:SetScript("OnEvent", function(_, ev, ...)
+		if ev == "PLAYER_DEAD" then
 			if spreeCount >= 5 then
 				local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
 				print(PREFIX .. " " .. endMsg)
@@ -266,8 +241,17 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
 		elseif ev == "PLAYER_ALIVE" then
 			ResetMultiKill()
 
-		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" or ev == "COMBAT_LOG_EVENT" then
-			if not playerGUID then return end
+		elseif ev == "UNIT_DIED" then
+			-- Retail: args are (unitToken) — check if it was killed by the player
+			-- We can't get sourceGUID from UNIT_DIED, so track via UNIT_TARGET instead.
+			-- Use the simpler approach: any unit death while player is in combat counts.
+			local unitToken = ...
+			if unitToken and UnitIsEnemy("player", unitToken) then
+				local isPlayer = UnitIsPlayer(unitToken)
+				OnKill(isPlayer)
+			end
+
+		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
 			local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
 			if sourceGUID == playerGUID then
 				local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
@@ -277,6 +261,8 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
 			end
 		end
 	end)
+
+	print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
 end)
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
@@ -284,6 +270,7 @@ end)
 SLASH_MEGAKILL1 = "/megakill"
 SLASH_MEGAKILL2 = "/mk"
 SlashCmdList["MEGAKILL"] = function(msg)
+	if not db then print(PREFIX .. ": Still loading...") return end
 	msg = strtrim(msg):lower()
 
 	if msg == "" or msg == "toggle" then
@@ -294,10 +281,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		db.screenAnnounce = not db.screenAnnounce
 		print(PREFIX .. ": Screen announce " .. (db.screenAnnounce and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
 
-	elseif msg == "chat" then
-		db.chatAnnounce = not db.chatAnnounce
-		print(PREFIX .. ": Chat announce " .. (db.chatAnnounce and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
-
 	elseif msg == "sound" then
 		db.sound = not db.sound
 		print(PREFIX .. ": Sound " .. (db.sound and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
@@ -305,15 +288,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 	elseif msg == "pvp" then
 		db.onlyPvP = not db.onlyPvP
 		print(PREFIX .. ": PvP-only " .. (db.onlyPvP and "|cff00ff00ON|r (HKs only)" or "|cffff0000OFF|r (all kills)"))
-
-	elseif msg:match("^channel %a+$") then
-		local ch = msg:match("^channel (%a+)$"):upper()
-		if ch == "SAY" or ch == "YELL" or ch == "PARTY" or ch == "RAID" or ch == "BATTLEGROUND" then
-			db.chatChannel = ch
-			print(PREFIX .. ": Chat channel set to |cffffd700" .. ch .. "|r")
-		else
-			print(PREFIX .. ": Valid channels: SAY, YELL, PARTY, RAID, BATTLEGROUND")
-		end
 
 	elseif msg:match("^window %d+$") then
 		local secs = tonumber(msg:match("^window (%d+)$"))
@@ -333,21 +307,20 @@ SlashCmdList["MEGAKILL"] = function(msg)
 			ShowAnnounce(mk.text, mk.r, mk.g, mk.b)
 			PlayMilestoneSound(idx)
 		else
-			print(PREFIX .. ": Use /mk test 2 (Double Kill), /mk test 3 (Triple Kill), /mk test 4 (Monster Kill)")
+			print(PREFIX .. ": Use /mk test 2, 3, or 4")
 		end
 
 	elseif msg == "config" then
-		if MegaKill_OpenConfig then
-			MegaKill_OpenConfig()
-		else
-			print(PREFIX .. ": Config UI not loaded yet, try again.")
-		end
+		if MegaKill_OpenConfig then MegaKill_OpenConfig()
+		else print(PREFIX .. ": Config UI not loaded yet.") end
 
 	elseif msg == "status" then
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
-		print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
+		if not IS_RETAIL then
+			print("  Chat:        " .. (db.chatAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r") .. " [" .. db.chatChannel .. "]")
+		end
 		print("  Sound:       " .. (db.sound and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
@@ -357,14 +330,10 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print("  /mk            — Toggle on/off")
 		print("  /mk config     — Open settings UI")
 		print("  /mk screen     — Toggle screen text")
-		print("  /mk chat       — Toggle chat announcements")
 		print("  /mk sound      — Toggle sounds")
-		print("  /mk pvp        — Toggle PvP-only mode (HKs only)")
-		print("  /mk channel X  — Set chat channel (SAY/YELL/PARTY/RAID/BATTLEGROUND)")
-		print("  /mk window X   — Set multi-kill window in seconds (5-60)")
-		print("  /mk test 2     — Preview Double Kill")
-		print("  /mk test 3     — Preview Triple Kill")
-		print("  /mk test 4     — Preview Monster Kill")
+		print("  /mk pvp        — Toggle PvP-only mode")
+		print("  /mk window X   — Set multi-kill window (5-60s)")
+		print("  /mk test 2/3/4 — Preview announcements")
 		print("  /mk status     — Show current settings")
 	end
 end
