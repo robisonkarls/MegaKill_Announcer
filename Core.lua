@@ -195,9 +195,17 @@ function MegaKill_OnPlayerLogin()
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
 
-	-- ── Event handlers via EventRegistry (no frame, no taint) ────────────────
-	-- EventRegistry:RegisterFrameEventAndCallback is the Retail 10.0+ API.
-	-- Falls back to a plain frame on Classic where EventRegistry may not exist.
+	-- Register combat/state events.
+	-- Frame:RegisterEvent is protected during InCombatLockdown().
+	-- If PLAYER_LOGIN fires while already in combat (BG/arena login),
+	-- we must defer until PLAYER_REGEN_ENABLED.
+	local function RegisterCombatEvents(frame)
+		frame:RegisterEvent("PLAYER_DEAD")
+		frame:RegisterEvent("PLAYER_ALIVE")
+		frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	end
+
+	local eventFrame = CreateFrame("Frame")
 
 	local function onCombatLog()
 		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
@@ -217,36 +225,52 @@ function MegaKill_OnPlayerLogin()
 		ResetMultiKill()
 	end
 
-	if IS_RETAIL and EventRegistry then
-		-- Modern API: no frame creation or RegisterEvent needed
-		EventRegistry:RegisterFrameEventAndCallback("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog, MegaKill_Announcer)
-		EventRegistry:RegisterFrameEventAndCallback("PLAYER_DEAD", onPlayerDead, MegaKill_Announcer)
-		EventRegistry:RegisterFrameEventAndCallback("PLAYER_ALIVE", ResetMultiKill, MegaKill_Announcer)
-	else
-		-- Classic: plain frame is fine
-		local eventFrame = CreateFrame("Frame")
-		eventFrame:RegisterEvent("PLAYER_DEAD")
-		eventFrame:RegisterEvent("PLAYER_ALIVE")
-		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		eventFrame:SetScript("OnEvent", function(_, ev)
-			if ev == "PLAYER_DEAD" then
-				onPlayerDead()
-			elseif ev == "PLAYER_ALIVE" then
-				ResetMultiKill()
-			elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
-				onCombatLog()
-			end
-		end)
+	eventFrame:SetScript("OnEvent", function(_, ev)
+		if ev == "PLAYER_REGEN_ENABLED" then
+			-- Out of combat — register main events now (deferred from combat login)
+			RegisterCombatEvents(eventFrame)
+			-- Don't need this anymore once registered
+			eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		elseif ev == "PLAYER_DEAD" then
+			onPlayerDead()
+		elseif ev == "PLAYER_ALIVE" then
+			ResetMultiKill()
+		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+			onCombatLog()
+		end
+	end)
 
-		-- Classic chat flush frame
+	if InCombatLockdown() then
+		-- In combat at login — defer RegisterEvent until we're out
+		eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+	else
+		RegisterCombatEvents(eventFrame)
+	end
+
+	-- Classic chat flush
+	if not IS_RETAIL then
 		local chatFrame = CreateFrame("Frame")
-		chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-		chatFrame:SetScript("OnEvent", function()
-			while #chatQueue > 0 do
-				local msg = table.remove(chatQueue, 1)
-				SendChatMessage(msg.text, msg.channel)
-			end
-		end)
+		if InCombatLockdown() then
+			chatFrame:SetScript("OnEvent", function(_, ev)
+				if ev == "PLAYER_REGEN_ENABLED" then
+					chatFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+					chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED") -- re-register for chat flush use
+				end
+				while #chatQueue > 0 do
+					local msg = table.remove(chatQueue, 1)
+					SendChatMessage(msg.text, msg.channel)
+				end
+			end)
+			chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+		else
+			chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+			chatFrame:SetScript("OnEvent", function()
+				while #chatQueue > 0 do
+					local msg = table.remove(chatQueue, 1)
+					SendChatMessage(msg.text, msg.channel)
+				end
+			end)
+		end
 	end
 
 	print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
