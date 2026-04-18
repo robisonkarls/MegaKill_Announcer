@@ -2,7 +2,7 @@
    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
    xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
 
-    <!-- Bootstrap frame: registers PLAYER_LOGIN safely via XML -->
+    <!-- Boot frame: fires PLAYER_LOGIN to initialise the addon -->
     <Frame name="MegaKill_BootFrame">
         <Scripts>
             <OnLoad>
@@ -11,6 +11,35 @@
             <OnEvent>
                 MegaKill_OnPlayerLogin()
             </OnEvent>
+        </Scripts>
+    </Frame>
+
+    <!--
+        Combat event frame declared in XML so it is never tainted.
+        COMBAT_LOG_EVENT_UNFILTERED is protected when registered from Lua on
+        Retail 12.0+, but XML-registered frames bypass that restriction.
+        We register both player state events and the combat log event here;
+        Lua wires up the OnEvent handler after PLAYER_LOGIN.
+    -->
+    <Frame name="MegaKill_EventFrame">
+        <Scripts>
+            <OnLoad>
+                self:RegisterEvent("PLAYER_DEAD")
+                self:RegisterEvent("PLAYER_ALIVE")
+                self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            </OnLoad>
+        </Scripts>
+    </Frame>
+
+    <!--
+        Classic-only chat flush frame. Registered here (XML) to avoid taint.
+        Lua wires the OnEvent handler conditionally after PLAYER_LOGIN.
+    -->
+    <Frame name="MegaKill_ChatFrame">
+        <Scripts>
+            <OnLoad>
+                self:RegisterEvent("PLAYER_REGEN_ENABLED")
+            </OnLoad>
         </Scripts>
     </Frame>
 

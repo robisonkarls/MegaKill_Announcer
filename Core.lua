@@ -196,11 +196,9 @@ function MegaKill_OnPlayerLogin()
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
 
-	-- Chat flush frame (Classic only)
-	if not IS_RETAIL then
-		local chatFrame = CreateFrame("Frame")
-		chatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-		chatFrame:SetScript("OnEvent", function()
+	-- Chat flush (Classic only) — frame declared in XML, handler wired here
+	if not IS_RETAIL and MegaKill_ChatFrame then
+		MegaKill_ChatFrame:SetScript("OnEvent", function()
 			while #chatQueue > 0 do
 				local msg = table.remove(chatQueue, 1)
 				SendChatMessage(msg.text, msg.channel)
@@ -208,20 +206,10 @@ function MegaKill_OnPlayerLogin()
 		end)
 	end
 
-	-- Combat event frame
-	local eventFrame = CreateFrame("Frame")
-	eventFrame:RegisterEvent("PLAYER_DEAD")
-	eventFrame:RegisterEvent("PLAYER_ALIVE")
-
-	if IS_RETAIL then
-		-- On Retail 12.0+, COMBAT_LOG_EVENT (no _UNFILTERED suffix) is the correct
-		-- non-protected event. CombatLogGetCurrentEventInfo() still works inside it.
-		eventFrame:RegisterEvent("COMBAT_LOG_EVENT")
-	else
-		eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	end
-
-	eventFrame:SetScript("OnEvent", function(_, ev, ...)
+	-- MegaKill_EventFrame is declared in Bootstrap.xml (untainted).
+	-- Events (PLAYER_DEAD, PLAYER_ALIVE, COMBAT_LOG_EVENT_UNFILTERED) are
+	-- registered there via OnLoad — safe on both Classic and Retail 12.0+.
+	MegaKill_EventFrame:SetScript("OnEvent", function(_, ev)
 		if ev == "PLAYER_DEAD" then
 			if spreeCount >= 5 then
 				local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
@@ -234,7 +222,7 @@ function MegaKill_OnPlayerLogin()
 		elseif ev == "PLAYER_ALIVE" then
 			ResetMultiKill()
 
-		elseif ev == "COMBAT_LOG_EVENT" or ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+		elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
 			local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
 			if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
 				local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
