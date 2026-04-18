@@ -7,8 +7,13 @@ local MK_Frame = CreateFrame("Frame")
 MK_Frame:RegisterEvent("PLAYER_LOGIN")
 MK_Frame:RegisterEvent("PLAYER_DEAD")
 MK_Frame:RegisterEvent("PLAYER_ALIVE")
-MK_Frame:RegisterEvent("UNIT_DIED")       -- Retail 12.0: replaces CLEU PARTY_KILL subevent
 MK_Frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")    -- Classic; ignored on Retail via IS_RETAIL guard
+-- UNIT_DIED is Retail 12.0+ only — registered after PLAYER_LOGIN confirms version
+local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+if IS_RETAIL_PRECHECK then
+	MK_Frame:RegisterEvent("UNIT_DIED")
+end
 
 -- Default settings
 local DEFAULTS = {
@@ -268,12 +273,6 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 
 		print(PREFIX .. " |cffffd700v1.0.4|r loaded — type |cffffd700/mk help|r for commands.")
 
-		if not IS_RETAIL then
-			-- Classic: swap UNIT_DIED for COMBAT_LOG_EVENT_UNFILTERED
-			MK_Frame:UnregisterEvent("UNIT_DIED")
-			MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		end
-
 	elseif ev == "PLAYER_DEAD" then
 		if spreeCount >= 5 then
 			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
@@ -309,8 +308,8 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		OnKill(isPlayer)
 
 	elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
-		-- Classic only (Retail 12.0 cannot register this event)
-		if not db then return end
+		-- Classic only — ignored on Retail (CLEU is restricted there)
+		if IS_RETAIL or not db then return end
 		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
 		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
 			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
