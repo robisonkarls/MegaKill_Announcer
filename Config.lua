@@ -151,6 +151,37 @@ local function CreateConfigPanel()
 		end, 240, rowY)
 
 	yOffset = yOffset - 34
+
+	-- Font size slider
+	local fontNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	fontNote:SetPoint("TOPLEFT", 20, yOffset)
+	fontNote:SetText("Announce text size:")
+	yOffset = yOffset - 26
+
+	local fontSlider = CreateFrame("Slider", ADDON_NAME .. "_FontSlider", content, "OptionsSliderTemplate")
+	fontSlider:SetPoint("TOPLEFT", 20, yOffset)
+	fontSlider:SetWidth(260)
+	fontSlider:SetMinMaxValues(16, 64)
+	fontSlider:SetValueStep(1)
+	fontSlider:SetObeyStepOnDrag(true)
+	fontSlider:SetValue(db.fontSize)
+
+	local fsn = fontSlider:GetName()
+	if _G[fsn .. "Low"]  then _G[fsn .. "Low"]:SetText("16")  end
+	if _G[fsn .. "High"] then _G[fsn .. "High"]:SetText("64") end
+
+	local fontValue = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	fontValue:SetPoint("LEFT", fontSlider, "RIGHT", 12, 0)
+	fontValue:SetText(db.fontSize .. "pt")
+
+	fontSlider:SetScript("OnValueChanged", function(self, value)
+		value = math.floor(value + 0.5)
+		db.fontSize = value
+		fontValue:SetText(value .. "pt")
+		if MegaKill_SetFontSize then MegaKill_SetFontSize(value) end
+	end)
+
+	yOffset = yOffset - 55
 	yOffset = yOffset - 4
 
 	-- ── Sound Pack ────────────────────────────────────────────────────────────
@@ -307,6 +338,7 @@ local function CreateConfigPanel()
 	panel:SetScript("OnShow", function()
 		for _, cb in ipairs(checkboxes) do cb:Refresh() end
 		windowSlider:SetValue(db.killWindow)
+		fontSlider:SetValue(db.fontSize)
 		UpdatePackLabel()
 	end)
 

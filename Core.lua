@@ -16,6 +16,7 @@ local DEFAULTS = {
 	onlyPvP        = false,
 	spreeAnnounce  = true,
 	streakBar      = true,
+	fontSize       = 32,
 }
 
 -- ── State ───────────────────────────────────────────────────────────────────────
@@ -43,6 +44,11 @@ end
 -- Expose for Config UI
 function MegaKill_PackIsMilestone() return PackIsMilestone() end
 function MegaKill_GetRegistry()    return registry end
+function MegaKill_SetFontSize(size)
+	if announceText then
+		announceText:SetFont(GameFontNormalHuge:GetFont(), size, "OUTLINE")
+	end
+end
 
 local multiKillCount = 0
 local multiKillTimer = nil
@@ -165,12 +171,13 @@ local function BuildAnnounceFrame()
 	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
 	announceFrame:SetFrameStrata("HIGH")
 	announceFrame:Hide()
-	announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	announceText = announceFrame:CreateFontString(nil, "OVERLAY")
 	announceText:SetAllPoints()
 	announceText:SetJustifyH("CENTER")
 	announceText:SetJustifyV("MIDDLE")
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
+	announceText:SetFont(GameFontNormalHuge:GetFont(), db.fontSize, "OUTLINE")
 end
 
 local MK_CoreFrame = CreateFrame("Frame")
