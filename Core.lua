@@ -44,9 +44,13 @@ end
 -- Expose for Config UI
 function MegaKill_PackIsMilestone() return PackIsMilestone() end
 function MegaKill_GetRegistry()    return registry end
+local WOW_FONT = "Fonts\\FRIZQT__.TTF"
+
 function MegaKill_SetFontSize(size)
 	if announceText then
-		announceText:SetFont(GameFontNormalHuge:GetFont(), size, "OUTLINE")
+		announceText:SetFont(WOW_FONT, size, "OUTLINE")
+		-- Grow frame to fit larger text
+		announceFrame:SetHeight(size * 2.5)
 	end
 end
 
@@ -177,7 +181,8 @@ local function BuildAnnounceFrame()
 	announceText:SetJustifyV("MIDDLE")
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
-	announceText:SetFont(GameFontNormalHuge:GetFont(), db.fontSize, "OUTLINE")
+	announceText:SetFont(WOW_FONT, db.fontSize, "OUTLINE")
+	announceFrame:SetHeight(db.fontSize * 2.5)
 end
 
 local MK_CoreFrame = CreateFrame("Frame")
