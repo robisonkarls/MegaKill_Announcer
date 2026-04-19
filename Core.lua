@@ -233,6 +233,18 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		if MegaKill_OpenConfig then MegaKill_OpenConfig()
 		else print(PREFIX .. ": Config UI not loaded yet.") end
 
+	elseif msg == "debug" then
+		print(PREFIX .. " |cffffd700Registry debug:|r")
+		print("  db.soundPack = " .. tostring(db.soundPack))
+		local count = 0
+		for k, v in pairs(registry) do
+			count = count + 1
+			print("  registry[" .. k .. "] type=" .. tostring(v.type) .. " label=" .. tostring(v.label))
+		end
+		print("  registry total packs: " .. count)
+		local p = GetPack()
+		print("  GetPack() = " .. tostring(p))
+
 	elseif msg == "status" then
 		local pack = GetPack()
 		print(PREFIX .. " |cffffd700Status:|r")
