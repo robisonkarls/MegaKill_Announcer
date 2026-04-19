@@ -244,6 +244,9 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print("  registry total packs: " .. count)
 		local p = GetPack()
 		print("  GetPack() = " .. tostring(p))
+		print("  direct lookup = " .. tostring(registry[db.soundPack]))
+		print("  db == MegaKill_Config: " .. tostring(db == MegaKill_Config))
+		print("  registry size check: " .. tostring(registry["Unreal_Theme"] ~= nil))
 
 	elseif msg == "status" then
 		local pack = GetPack()
