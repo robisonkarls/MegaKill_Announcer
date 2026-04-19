@@ -18,6 +18,9 @@ local DEFAULTS = {
 	streakBar      = true,
 }
 
+-- ── State ───────────────────────────────────────────────────────────────────────
+local db
+
 -- ── Pack registry ─────────────────────────────────────────────────────────────
 -- Packs register themselves by calling MegaKill_RegisterPack().
 -- Built-in packs live in Packs/. Community packs are separate addons.
@@ -41,8 +44,6 @@ end
 function MegaKill_PackIsMilestone() return PackIsMilestone() end
 function MegaKill_GetRegistry()    return registry end
 
--- ── State ─────────────────────────────────────────────────────────────────────
-local db
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
