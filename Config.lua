@@ -195,9 +195,9 @@ local function CreateConfigPanel()
 		local isMilestone = MegaKill_PackIsMilestone and MegaKill_PackIsMilestone()
 		local alpha = isMilestone and 1 or 0.4
 		spreeCheck:SetAlpha(alpha)
-		spreeCheck:SetEnabled(isMilestone and true or false)
+		if isMilestone then spreeCheck:Enable() else spreeCheck:Disable() end
 		streakCheck:SetAlpha(alpha)
-		streakCheck:SetEnabled(isMilestone and true or false)
+		if isMilestone then streakCheck:Enable() else streakCheck:Disable() end
 		if not isMilestone and MegaKill_StreakBar_Reset then
 			MegaKill_StreakBar_Reset()
 		end
