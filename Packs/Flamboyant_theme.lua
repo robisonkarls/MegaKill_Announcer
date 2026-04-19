@@ -7,7 +7,7 @@ MegaKill_RegisterPack("Flamboyant_theme", {
 	label     = "Heroes of Newerth - Flamboyant",
 	author    = "S2 Games (sounds used under fair use for personal addon)",
 	addonName = "MegaKill_Announcer",
-	soundsPath = "assets\\Flamboyant_theme",
+	soundsPath = "assets/Flamboyant_theme",
 
 	-- Flat pool: one entry picked at random per kill.
 	-- Label is shown on-screen. Supports WoW color escape codes.

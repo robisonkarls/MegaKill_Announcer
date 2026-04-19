@@ -6,7 +6,7 @@ MegaKill_RegisterPack("Unreal_Theme", {
 	label     = "Unreal Tournament",
 	author    = "Epic Games (sounds used under fair use for personal addon)",
 	addonName = "MegaKill_Announcer",
-	soundsPath = "assets\\Unreal_Theme",
+	soundsPath = "assets/Unreal_Theme",
 
 	-- Kill count slots: each entry is a list of { label, sound } options (picked randomly)
 	files = {

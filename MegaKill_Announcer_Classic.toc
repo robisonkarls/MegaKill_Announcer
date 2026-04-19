@@ -10,7 +10,7 @@
 Bootstrap.xml
 Core.lua
 Events_Classic.lua
-Packs\Unreal_Theme.lua
-Packs\Flamboyant_theme.lua
+Packs/Unreal_Theme.lua
+Packs/Flamboyant_theme.lua
 StreakBar.lua
 Config.lua

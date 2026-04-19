@@ -53,7 +53,7 @@ local spreeCount     = 0
 local function PickSound(pack, slot)
 	if not slot or #slot == 0 then return nil, nil end
 	local entry = slot[math.random(#slot)]
-	local path = "Interface\\AddOns\\" .. pack.addonName .. "\\" .. pack.soundsPath .. "\\" .. entry.sound
+	local path = "Interface/AddOns/" .. pack.addonName .. "/" .. pack.soundsPath .. "/" .. entry.sound
 	return path, entry.label
 end
 
