@@ -1,8 +1,6 @@
 -- MegaKill Announcer - Configuration UI
 
 local ADDON_NAME = "MegaKill_Announcer"
-local PREFIX = "|cffff7d0aMegaKill|r"
-local IS_RETAIL = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 local configPanel = nil
 local configCategory = nil
@@ -27,12 +25,11 @@ local function CreateConfigPanel()
 		return
 	end
 
-	-- Outer frame registered with Settings
 	local panel = CreateFrame("Frame", ADDON_NAME .. "_ConfigPanel", UIParent)
 	panel.name = "MegaKill Announcer"
 	configPanel = panel
 
-	-- ── Header (fixed, outside scroll) ───────────────────────────────────────
+	-- ── Header ────────────────────────────────────────────────────────────────
 
 	local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 16, -16)
@@ -40,7 +37,7 @@ local function CreateConfigPanel()
 
 	local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.6|r")
+	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.8|r")
 
 	local divider = panel:CreateTexture(nil, "ARTWORK")
 	divider:SetHeight(1)
@@ -58,7 +55,6 @@ local function CreateConfigPanel()
 	content:SetSize(scrollFrame:GetWidth() or 500, 800)
 	scrollFrame:SetScrollChild(content)
 
-	-- Resize content width when panel resizes
 	panel:SetScript("OnSizeChanged", function(_, w, _)
 		content:SetWidth(w - 44)
 	end)
@@ -79,11 +75,9 @@ local function CreateConfigPanel()
 		local check = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
 		check:SetPoint("TOPLEFT", 20, yOffset)
 		check:SetSize(24, 24)
-
 		local lbl = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
 		lbl:SetText(label)
-
 		check:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(tooltip, nil, nil, nil, nil, true)
@@ -93,22 +87,17 @@ local function CreateConfigPanel()
 		check:SetScript("OnClick", function(self) setter(self:GetChecked()) end)
 		check.Refresh = function() check:SetChecked(getter()) end
 		table.insert(checkboxes, check)
-
 		yOffset = yOffset - 30
 		return check
 	end
-
-	-- ── Two-column checkboxes ─────────────────────────────────────────────────
 
 	local function CreateCheckboxAt(label, tooltip, getter, setter, x, y)
 		local check = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
 		check:SetPoint("TOPLEFT", x, y)
 		check:SetSize(24, 24)
-
 		local lbl = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 		lbl:SetPoint("LEFT", check, "RIGHT", 4, 0)
 		lbl:SetText(label)
-
 		check:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(tooltip, nil, nil, nil, nil, true)
@@ -125,7 +114,6 @@ local function CreateConfigPanel()
 
 	SectionHeader("General")
 
-	-- Two columns: left and right
 	local rowY = yOffset
 	CreateCheckboxAt("Enable Addon",
 		"Turn MegaKill Announcer on or off.",
@@ -149,13 +137,13 @@ local function CreateConfigPanel()
 		function(v) db.screenAnnounce = v end)
 
 	rowY = yOffset
-	CreateCheckboxAt("Announce Killing Sprees",
-		"Announce Killing Spree, Rampage, Godlike, etc.",
+	local spreeCheck = CreateCheckboxAt("Announce Killing Sprees",
+		"Announce Killing Spree, Rampage, Godlike, etc. Only available for milestone packs.",
 		function() return db.spreeAnnounce end,
 		function(v) db.spreeAnnounce = v end, 20, rowY)
 
-	CreateCheckboxAt("Show Streak Timer Bar",
-		"Thin progress bar showing time left to chain the next kill.",
+	local streakCheck = CreateCheckboxAt("Show Streak Timer Bar",
+		"Progress bar showing time left to chain the next kill. Only available for milestone packs.",
 		function() return db.streakBar end,
 		function(v)
 			db.streakBar = v
@@ -163,17 +151,17 @@ local function CreateConfigPanel()
 		end, 240, rowY)
 
 	yOffset = yOffset - 34
-
-
 	yOffset = yOffset - 4
-
 
 	-- ── Sound Pack ────────────────────────────────────────────────────────────
 
 	SectionHeader("Sound Pack")
 
 	local SOUND_PACK_LIST   = { "Unreal_Theme", "Flamboyant_theme" }
-	local SOUND_PACK_LABELS = { Unreal_Theme = "Unreal Tournament", Flamboyant_theme = "Heroes of Newerth - Flamboyant" }
+	local SOUND_PACK_LABELS = {
+		Unreal_Theme     = "Unreal Tournament",
+		Flamboyant_theme = "Heroes of Newerth - Flamboyant",
+	}
 
 	local packNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	packNote:SetPoint("TOPLEFT", 20, yOffset)
@@ -190,13 +178,32 @@ local function CreateConfigPanel()
 	packLabel:SetWidth(180)
 	packLabel:SetJustifyH("LEFT")
 
+	local packTypeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	packTypeLabel:SetPoint("TOPLEFT", 20, yOffset - 22)
+	packTypeLabel:SetTextColor(0.6, 0.6, 0.6, 1)
+
 	local nextBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 	nextBtn:SetSize(28, 24)
 	nextBtn:SetPoint("LEFT", packLabel, "RIGHT", 8, 0)
 	nextBtn:SetText(">")
 
+	-- Greys out milestone-only controls when a random pack is active
+	local function RefreshMilestoneControls()
+		local isMilestone = MegaKill_PackIsMilestone and MegaKill_PackIsMilestone()
+		local alpha = isMilestone and 1 or 0.4
+		spreeCheck:SetAlpha(alpha)
+		spreeCheck:SetEnabled(isMilestone and true or false)
+		streakCheck:SetAlpha(alpha)
+		streakCheck:SetEnabled(isMilestone and true or false)
+		if not isMilestone and MegaKill_StreakBar_Reset then
+			MegaKill_StreakBar_Reset()
+		end
+		packTypeLabel:SetText(isMilestone and "Type: progressive milestone" or "Type: random (no sprees or streak bar)")
+	end
+
 	local function UpdatePackLabel()
 		packLabel:SetText(SOUND_PACK_LABELS[db.soundPack] or db.soundPack)
+		RefreshMilestoneControls()
 	end
 	UpdatePackLabel()
 
@@ -221,7 +228,7 @@ local function CreateConfigPanel()
 		UpdatePackLabel()
 	end)
 
-	yOffset = yOffset - 38
+	yOffset = yOffset - 52
 
 	-- ── Multi-Kill Window ─────────────────────────────────────────────────────
 
@@ -278,7 +285,6 @@ local function CreateConfigPanel()
 		btn:SetSize(100, 26)
 		btn:SetText(t.label)
 		btn:SetScript("OnClick", function()
-			-- Get one consistent pick for both sound and text
 			local soundPath, soundFile
 			if MegaKill_GetSound then
 				soundPath, soundFile = MegaKill_GetSound(t.idx)
@@ -293,7 +299,6 @@ local function CreateConfigPanel()
 
 	yOffset = yOffset - 40
 
-	-- Resize content height to fit everything
 	content:SetHeight(math.abs(yOffset) + 20)
 
 	-- ── Refresh on show ───────────────────────────────────────────────────────

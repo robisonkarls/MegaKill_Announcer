@@ -18,7 +18,7 @@ local DEFAULTS = {
 	streakBar      = true,
 }
 
--- Multi-kill milestones
+-- Multi-kill milestones (used by milestone-type packs for on-screen text)
 local MULTI_KILL = {
 	[1] = { text = "First Blood!",    r = 1.0, g = 1.0, b = 1.0 },
 	[2] = { text = "Double Kill!",    r = 1.0, g = 1.0, b = 0.0 },
@@ -31,7 +31,7 @@ local MULTI_KILL = {
 	[9] = { text = "Holy Sh*t!!",     r = 1.0, g = 0.0, b = 1.0 },
 }
 
--- Killing spree milestones
+-- Killing spree milestones (milestone-type packs only)
 local KILLING_SPREE = {
 	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0, sound = "Killing_Spree" },
 	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0, sound = "Rampage"       },
@@ -41,34 +41,44 @@ local KILLING_SPREE = {
 	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0, sound = "Wicked_Sick"   },
 }
 
--- Sound packs
+-- ── Sound packs ───────────────────────────────────────────────────────────────
+-- type = "milestone" : files keyed by kill count and spree name; sprees fire; streak bar shown
+-- type = "random"    : flat file list; one random pick per kill; no sprees; no streak bar
 local SOUND_PACKS = {
 	Unreal_Theme = {
-		[1]  = { "first_blood.wav" },
-		[2]  = { "double_kill.wav" },
-		[3]  = { "triple_kill.wav" },
-		[4]  = { "mega_kill.wav" },
-		[5]  = { "mega_kill.wav" },
-		[6]  = { "monster_kill.wav" },
-		[7]  = { "ultra_kill.wav" },
-		[8]  = { "ludicrous_kill.wav", "ownage.wav" },
-		[9]  = { "holy_shit.wav", "ownage.wav" },
-		Killing_Spree = { "killing_spree.wav" },
-		Rampage       = { "rampage.wav" },
-		Unstoppable   = { "unstoppable.wav" },
-		Dominating    = { "dominating.wav" },
-		Godlike       = { "godlike.wav" },
-		Wicked_Sick   = { "wicked_sick.wav" },
+		type        = "milestone",
+		displayName = false,
+		rainbow     = false,
+		files = {
+			[1]  = { "first_blood.wav" },
+			[2]  = { "double_kill.wav" },
+			[3]  = { "triple_kill.wav" },
+			[4]  = { "mega_kill.wav" },
+			[5]  = { "mega_kill.wav" },
+			[6]  = { "monster_kill.wav" },
+			[7]  = { "ultra_kill.wav" },
+			[8]  = { "ludicrous_kill.wav", "ownage.wav" },
+			[9]  = { "holy_shit.wav", "ownage.wav" },
+			Killing_Spree = { "killing_spree.wav" },
+			Rampage       = { "rampage.wav" },
+			Unstoppable   = { "unstoppable.wav" },
+			Dominating    = { "dominating.wav" },
+			Godlike       = { "godlike.wav" },
+			Wicked_Sick   = { "wicked_sick.wav" },
+		},
 	},
 	Flamboyant_theme = {
-		displayName = true,
-		rainbow     = true,
-		simpleSlots = true,
-		[1] = { "CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav" },
-		[2] = { "Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav" },
-		[3] = { "Fabulous.wav", "Home_Wracker.wav", "Hoooo_Noooo.wav", "Machooowav.wav" },
-		[4] = { "Super_Star.wav", "rainbow_warrior.wav", "CANT_TOUCH_THIS.wav", "big_bear.wav" },
-		[5] = { "Unicorn_Stampeeede.wav", "Homecidal.wav", "Like_Oh_EME_Jay.wav", "Domination.wav", "diva.wav", "YaaaaaYyy.wav" },
+		type        = "random",
+		displayName = true,   -- show filename as announce text
+		rainbow     = true,   -- render text in cycling rainbow colors
+		files = {
+			"CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav",
+			"Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav",
+			"Fabulous.wav", "Home_Wracker.wav", "Hoooo_Noooo.wav", "Machooowav.wav",
+			"Super_Star.wav", "rainbow_warrior.wav", "CANT_TOUCH_THIS.wav", "big_bear.wav",
+			"Unicorn_Stampeeede.wav", "Homecidal.wav", "Like_Oh_EME_Jay.wav",
+			"Domination.wav", "diva.wav", "YaaaaaYyy.wav",
+		},
 	},
 }
 
@@ -111,28 +121,45 @@ end
 
 -- ── Sound ─────────────────────────────────────────────────────────────────────
 
+local function PackIsMilestone()
+	local pack = db and SOUND_PACKS[db.soundPack]
+	return pack and pack.type == "milestone"
+end
+
+-- key is a kill count (number) for multi-kills, or a spree name (string) for sprees
 local function GetSound(key)
 	if not db then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil, nil end
-	if pack.simpleSlots and type(key) == "number" then
-		key = math.min(key, 5)
-	elseif pack.simpleSlots and type(key) == "string" then
+
+	local file
+	if pack.type == "milestone" then
+		local pool = pack.files[key]
+		if not pool or #pool == 0 then return nil, nil end
+		file = pool[math.random(#pool)]
+	elseif pack.type == "random" then
+		-- Random packs have no spree sounds — spree key calls return nothing
+		if type(key) == "string" then return nil, nil end
+		local pool = pack.files
+		if not pool or #pool == 0 then return nil, nil end
+		file = pool[math.random(#pool)]
+	else
 		return nil, nil
 	end
-	local pool = pack[key]
-	if not pool or #pool == 0 then return nil, nil end
-	local file = pool[math.random(#pool)]
+
 	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
 end
 
 -- Public sound API (used by Config preview)
-function MegaKill_GetSound(key)    return GetSound(key) end
+function MegaKill_GetSound(key)     return GetSound(key) end
 function MegaKill_GetSoundFile(key) local _, f = GetSound(key) return f end
 function MegaKill_PlayMilestoneSound(key)
 	local sound = GetSound(key)
 	if sound then PlaySoundFile(sound, "Master") end
 end
+
+-- Expose pack type check for Config UI
+function MegaKill_PackIsMilestone() return PackIsMilestone() end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
@@ -187,18 +214,24 @@ local function OnKill(isPlayer)
 	multiKillCount = multiKillCount + 1
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
 
-	if MegaKill_StreakBar_Start and db.streakBar then
+	-- Streak bar only makes sense for milestone packs
+	if MegaKill_StreakBar_Start and db.streakBar and PackIsMilestone() then
 		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
 	end
 
 	local mk = MULTI_KILL[multiKillCount]
+	local sound, file = GetSound(multiKillCount)
+	if sound then PlaySoundFile(sound, "Master") end
+	-- For random packs: mk is nil beyond kill 9, but sound still plays
 	if mk then
-		local sound, file = GetSound(multiKillCount)
-		if sound then PlaySoundFile(sound, "Master") end
 		ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
+	elseif file then
+		-- Random pack: filename is the announcement
+		ShowAnnounce("", 1, 1, 1, file)
 	end
 
-	if isPlayer and db.spreeAnnounce then
+	-- Sprees only fire for milestone packs (random packs have no spree sounds)
+	if isPlayer and db.spreeAnnounce and PackIsMilestone() then
 		spreeCount = spreeCount + 1
 		local spree = KILLING_SPREE[spreeCount]
 		if spree then
@@ -233,7 +266,7 @@ function MegaKill.GetDB()
 	return db
 end
 
--- ── Bootstrap frame (shared: PLAYER_LOGIN only) ───────────────────────────────
+-- ── Bootstrap frame (PLAYER_LOGIN: init db and announce frame) ────────────────
 
 local MK_CoreFrame = CreateFrame("Frame")
 MK_CoreFrame:RegisterEvent("PLAYER_LOGIN")
@@ -245,7 +278,6 @@ MK_CoreFrame:SetScript("OnEvent", function(_, ev)
 		end
 		db = MegaKill_Config
 
-		-- Build announce frame
 		announceFrame = CreateFrame("Frame", nil, UIParent)
 		announceFrame:SetSize(500, 80)
 		announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
@@ -299,10 +331,10 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		local testMap = { [2] = 2, [3] = 3, [4] = 6 }
 		local idx = testMap[n]
 		if idx then
-			local mk = { text = "Test Kill!", r = 1.0, g = 1.0, b = 0.0 }
 			local sound, file = GetSound(idx)
+			local mk = MULTI_KILL[idx]
 			if sound then PlaySoundFile(sound, "Master") end
-			ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
+			ShowAnnounce(mk and mk.text or "", mk and mk.r or 1, mk and mk.g or 1, mk and mk.b or 0, file)
 		else
 			print(PREFIX .. ": Use /mk test 2, 3, or 4")
 		end
@@ -318,6 +350,7 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
 		print("  Sound pack:  |cffffd700" .. db.soundPack .. "|r")
+		print("  Pack type:   |cffffd700" .. (PackIsMilestone() and "milestone" or "random") .. "|r")
 
 	else
 		print(PREFIX .. " |cffffd700Commands:|r")
