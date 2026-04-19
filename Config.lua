@@ -179,6 +179,8 @@ local function CreateConfigPanel()
 		db.fontSize = value
 		fontValue:SetText(value .. "pt")
 		if MegaKill_SetFontSize then MegaKill_SetFontSize(value) end
+		-- Show a live preview so the player sees the size change immediately
+		if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce("MegaKill!") end
 	end)
 
 	yOffset = yOffset - 55
