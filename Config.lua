@@ -2,7 +2,7 @@
 
 local ADDON_NAME = "MegaKill_Announcer"
 
-local configPanel = nil
+local configPanel    = nil
 local configCategory = nil
 
 -- ── Open the config panel ─────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ local function CreateConfigPanel()
 
 	local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-	subtitle:SetText("|cff888888PvP killstreak announcer — v1.0.8|r")
+	subtitle:SetText("|cff888888PvP killstreak announcer — v1.2.0|r")
 
 	local divider = panel:CreateTexture(nil, "ARTWORK")
 	divider:SetHeight(1)
@@ -61,7 +61,7 @@ local function CreateConfigPanel()
 
 	-- ── Helpers ───────────────────────────────────────────────────────────────
 
-	local yOffset = -8
+	local yOffset  = -8
 	local checkboxes = {}
 
 	local function SectionHeader(text)
@@ -132,18 +132,18 @@ local function CreateConfigPanel()
 	SectionHeader("Announcements")
 
 	CreateCheckbox("Show On-Screen Text",
-		"Display large coloured text in the centre of your screen on each kill.",
+		"Display large text in the centre of your screen on each kill.",
 		function() return db.screenAnnounce end,
 		function(v) db.screenAnnounce = v end)
 
 	rowY = yOffset
 	local spreeCheck = CreateCheckboxAt("Announce Killing Sprees",
-		"Announce Killing Spree, Rampage, Godlike, etc. Only available for milestone packs.",
+		"Announce Killing Spree, Rampage, Godlike, etc. Milestone packs only.",
 		function() return db.spreeAnnounce end,
 		function(v) db.spreeAnnounce = v end, 20, rowY)
 
 	local streakCheck = CreateCheckboxAt("Show Streak Timer Bar",
-		"Progress bar showing time left to chain the next kill. Only available for milestone packs.",
+		"Progress bar showing time left to chain the next kill. Milestone packs only.",
 		function() return db.streakBar end,
 		function(v)
 			db.streakBar = v
@@ -157,11 +157,14 @@ local function CreateConfigPanel()
 
 	SectionHeader("Sound Pack")
 
-	local SOUND_PACK_LIST   = { "Unreal_Theme", "Flamboyant_theme" }
-	local SOUND_PACK_LABELS = {
-		Unreal_Theme     = "Unreal Tournament",
-		Flamboyant_theme = "Heroes of Newerth - Flamboyant",
-	}
+	-- Build sorted pack list dynamically from the registry
+	local function GetSortedPackKeys()
+		local keys = {}
+		local reg = MegaKill_GetRegistry and MegaKill_GetRegistry() or {}
+		for k in pairs(reg) do table.insert(keys, k) end
+		table.sort(keys)
+		return keys
+	end
 
 	local packNote = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	packNote:SetPoint("TOPLEFT", 20, yOffset)
@@ -175,19 +178,19 @@ local function CreateConfigPanel()
 
 	local packLabel = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	packLabel:SetPoint("LEFT", prevBtn, "RIGHT", 8, 0)
-	packLabel:SetWidth(180)
+	packLabel:SetWidth(200)
 	packLabel:SetJustifyH("LEFT")
-
-	local packTypeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	packTypeLabel:SetPoint("TOPLEFT", 20, yOffset - 22)
-	packTypeLabel:SetTextColor(0.6, 0.6, 0.6, 1)
 
 	local nextBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 	nextBtn:SetSize(28, 24)
 	nextBtn:SetPoint("LEFT", packLabel, "RIGHT", 8, 0)
 	nextBtn:SetText(">")
 
-	-- Greys out milestone-only controls when a random pack is active
+	local packTypeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	packTypeLabel:SetPoint("TOPLEFT", 20, yOffset - 22)
+	packTypeLabel:SetTextColor(0.6, 0.6, 0.6, 1)
+
+	-- Greys out milestone-only controls when a random pack is selected
 	local function RefreshMilestoneControls()
 		local isMilestone = MegaKill_PackIsMilestone and MegaKill_PackIsMilestone()
 		local alpha = isMilestone and 1 or 0.4
@@ -198,33 +201,38 @@ local function CreateConfigPanel()
 		if not isMilestone and MegaKill_StreakBar_Reset then
 			MegaKill_StreakBar_Reset()
 		end
-		packTypeLabel:SetText(isMilestone and "Type: progressive milestone" or "Type: random (no sprees or streak bar)")
+		packTypeLabel:SetText(isMilestone
+			and "Type: progressive milestone"
+			or  "Type: random (no sprees or streak bar)")
 	end
 
 	local function UpdatePackLabel()
-		packLabel:SetText(SOUND_PACK_LABELS[db.soundPack] or db.soundPack)
+		local reg = MegaKill_GetRegistry and MegaKill_GetRegistry() or {}
+		local pack = reg[db.soundPack]
+		packLabel:SetText(pack and pack.label or db.soundPack)
 		RefreshMilestoneControls()
 	end
 	UpdatePackLabel()
 
 	local function GetPackIndex()
-		for i, v in ipairs(SOUND_PACK_LIST) do
-			if v == db.soundPack then return i end
+		local keys = GetSortedPackKeys()
+		for i, k in ipairs(keys) do
+			if k == db.soundPack then return i, keys end
 		end
-		return 1
+		return 1, keys
 	end
 
 	prevBtn:SetScript("OnClick", function()
-		local i = GetPackIndex()
-		i = ((i - 2) % #SOUND_PACK_LIST) + 1
-		db.soundPack = SOUND_PACK_LIST[i]
+		local i, keys = GetPackIndex()
+		i = ((i - 2) % #keys) + 1
+		db.soundPack = keys[i]
 		UpdatePackLabel()
 	end)
 
 	nextBtn:SetScript("OnClick", function()
-		local i = GetPackIndex()
-		i = (i % #SOUND_PACK_LIST) + 1
-		db.soundPack = SOUND_PACK_LIST[i]
+		local i, keys = GetPackIndex()
+		i = (i % #keys) + 1
+		db.soundPack = keys[i]
 		UpdatePackLabel()
 	end)
 
@@ -272,33 +280,26 @@ local function CreateConfigPanel()
 	previewNote:SetText("Click to preview from the selected pack:")
 	yOffset = yOffset - 28
 
-	local tests = {
-		{ label = "Kill 1", idx = 1, text = "First Blood!",  r = 1.0, g = 1.0, b = 1.0 },
-		{ label = "Kill 2", idx = 2, text = "Double Kill!",  r = 1.0, g = 1.0, b = 0.0 },
-		{ label = "Kill 3", idx = 3, text = "Triple Kill!",  r = 1.0, g = 0.5, b = 0.0 },
-	}
+	local previewSlots = { 1, 2, 3 }
+	local previewLabels = { "Kill 1", "Kill 2", "Kill 3" }
 
 	local xPos = 20
-	for _, t in ipairs(tests) do
+	for i, slot in ipairs(previewSlots) do
 		local btn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
 		btn:SetPoint("TOPLEFT", xPos, yOffset)
 		btn:SetSize(100, 26)
-		btn:SetText(t.label)
+		btn:SetText(previewLabels[i])
 		btn:SetScript("OnClick", function()
-			local soundPath, soundFile
 			if MegaKill_GetSound then
-				soundPath, soundFile = MegaKill_GetSound(t.idx)
-			end
-			if soundPath then PlaySoundFile(soundPath, "Master") end
-			if MegaKill_ShowAnnounce then
-				MegaKill_ShowAnnounce(t.text, t.r, t.g, t.b, soundFile)
+				local soundPath, label = MegaKill_GetSound(slot)
+				if soundPath then PlaySoundFile(soundPath, "Master") end
+				if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce(label) end
 			end
 		end)
 		xPos = xPos + 110
 	end
 
 	yOffset = yOffset - 40
-
 	content:SetHeight(math.abs(yOffset) + 20)
 
 	-- ── Refresh on show ───────────────────────────────────────────────────────

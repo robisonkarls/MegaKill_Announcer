@@ -1,13 +1,13 @@
 -- MegaKill Announcer - Core (shared logic)
--- Event registration is handled by Events_Retail.lua or Events_Classic.lua
--- depending on which TOC loaded this session.
+-- Event registration is handled by Events_Retail.lua or Events_Classic.lua.
+-- Sound packs register themselves via MegaKill_RegisterPack() after this file loads.
 
 local PREFIX = "|cffff7d0aMegaKill|r"
 
 -- ── Shared namespace ──────────────────────────────────────────────────────────
 MegaKill = {}
 
--- Default settings
+-- ── Default settings ──────────────────────────────────────────────────────────
 local DEFAULTS = {
 	enabled        = true,
 	screenAnnounce = true,
@@ -18,168 +18,74 @@ local DEFAULTS = {
 	streakBar      = true,
 }
 
--- Multi-kill milestones (used by milestone-type packs for on-screen text)
-local MULTI_KILL = {
-	[1] = { text = "First Blood!",    r = 1.0, g = 1.0, b = 1.0 },
-	[2] = { text = "Double Kill!",    r = 1.0, g = 1.0, b = 0.0 },
-	[3] = { text = "Triple Kill!",    r = 1.0, g = 0.5, b = 0.0 },
-	[4] = { text = "Quadra Kill!",    r = 1.0, g = 0.2, b = 0.0 },
-	[5] = { text = "Mega Kill!",      r = 1.0, g = 0.0, b = 0.0 },
-	[6] = { text = "Monster Kill!",   r = 0.6, g = 0.0, b = 1.0 },
-	[7] = { text = "Ultra Kill!",     r = 0.0, g = 0.8, b = 1.0 },
-	[8] = { text = "Ludicrous Kill!", r = 0.0, g = 1.0, b = 0.0 },
-	[9] = { text = "Holy Sh*t!!",     r = 1.0, g = 0.0, b = 1.0 },
-}
+-- ── Pack registry ─────────────────────────────────────────────────────────────
+-- Packs register themselves by calling MegaKill_RegisterPack().
+-- Built-in packs live in Packs/. Community packs are separate addons.
+local registry = {}
 
--- Killing spree milestones (milestone-type packs only)
-local KILLING_SPREE = {
-	[5]  = { text = "Killing Spree!", r = 1.0, g = 1.0, b = 0.0, sound = "Killing_Spree" },
-	[10] = { text = "Rampage!",       r = 1.0, g = 0.5, b = 0.0, sound = "Rampage"       },
-	[15] = { text = "Unstoppable!",   r = 1.0, g = 0.2, b = 0.0, sound = "Unstoppable"   },
-	[20] = { text = "Dominating!",    r = 0.6, g = 0.0, b = 1.0, sound = "Dominating"    },
-	[25] = { text = "Godlike!",       r = 0.0, g = 0.8, b = 1.0, sound = "Godlike"       },
-	[30] = { text = "Wicked Sick!",   r = 0.0, g = 1.0, b = 0.0, sound = "Wicked_Sick"   },
-}
+-- Public API: called by every pack (built-in and community)
+function MegaKill_RegisterPack(key, definition)
+	registry[key] = definition
+end
 
--- ── Sound packs ───────────────────────────────────────────────────────────────
--- type = "milestone" : files keyed by kill count and spree name; sprees fire; streak bar shown
--- type = "random"    : flat file list; one random pick per kill; no sprees; no streak bar
-local SOUND_PACKS = {
-	Unreal_Theme = {
-		type        = "milestone",
-		displayName = false,
-		rainbow     = false,
-		files = {
-			[1]  = { "first_blood.wav" },
-			[2]  = { "double_kill.wav" },
-			[3]  = { "triple_kill.wav" },
-			[4]  = { "mega_kill.wav" },
-			[5]  = { "mega_kill.wav" },
-			[6]  = { "monster_kill.wav" },
-			[7]  = { "ultra_kill.wav" },
-			[8]  = { "ludicrous_kill.wav", "ownage.wav" },
-			[9]  = { "holy_shit.wav", "ownage.wav" },
-			Killing_Spree = { "killing_spree.wav" },
-			Rampage       = { "rampage.wav" },
-			Unstoppable   = { "unstoppable.wav" },
-			Dominating    = { "dominating.wav" },
-			Godlike       = { "godlike.wav" },
-			Wicked_Sick   = { "wicked_sick.wav" },
-		},
-	},
-	Flamboyant_theme = {
-		type        = "random",
-		displayName = true,   -- show filename as announce text
-		rainbow     = true,   -- render text in cycling rainbow colors
-		files = {
-			"CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav",
-			"Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav",
-			"Fabulous.wav", "Home_Wracker.wav", "Hoooo_Noooo.wav", "Machooowav.wav",
-			"Super_Star.wav", "rainbow_warrior.wav", "CANT_TOUCH_THIS.wav", "big_bear.wav",
-			"Unicorn_Stampeeede.wav", "Homecidal.wav", "Like_Oh_EME_Jay.wav",
-			"Domination.wav", "diva.wav", "YaaaaaYyy.wav",
-		},
-	},
-}
+local function GetPack()
+	return db and registry[db.soundPack]
+end
+
+local function PackIsMilestone()
+	local pack = GetPack()
+	return pack and pack.type == "milestone"
+end
+
+-- Expose for Config UI
+function MegaKill_PackIsMilestone() return PackIsMilestone() end
+function MegaKill_GetRegistry()    return registry end
 
 -- ── State ─────────────────────────────────────────────────────────────────────
-
 local db
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
 
--- ── Text helpers ──────────────────────────────────────────────────────────────
-
--- "CHERRY_POPPAH.wav" -> "Cherry Poppah"
-local function FileToDisplayName(filename)
-	local name = filename:match("^(.+)%..+$") or filename
-	name = name:gsub("_", " ")
-	name = name:gsub("(%a)([%w_']*)", function(first, rest)
-		return first:upper() .. rest:lower()
-	end)
-	return name
+-- ── Sound selection ───────────────────────────────────────────────────────────
+-- Returns soundPath, label for the given key.
+-- key is a kill count (number) or a spree name (string).
+local function PickSound(pack, slot)
+	if not slot or #slot == 0 then return nil, nil end
+	local entry = slot[math.random(#slot)]
+	local path = "Interface\\AddOns\\" .. pack.addonName .. "\\" .. pack.soundsPath .. "\\" .. entry.sound
+	return path, entry.label
 end
 
-local RAINBOW = {
-	"|cffff0000", "|cffff7f00", "|cffffff00",
-	"|cff00ff00", "|cff0000ff", "|cff8b00ff",
-}
-local function RainbowText(text)
-	local out = ""
-	local ci = 1
-	for char in text:gmatch(".") do
-		if char == " " then
-			out = out .. " "
-		else
-			out = out .. RAINBOW[ci] .. char .. "|r"
-			ci = ci % #RAINBOW + 1
-		end
-	end
-	return out
-end
-
--- ── Sound ─────────────────────────────────────────────────────────────────────
-
-local function PackIsMilestone()
-	local pack = db and SOUND_PACKS[db.soundPack]
-	return pack and pack.type == "milestone"
-end
-
--- key is a kill count (number) for multi-kills, or a spree name (string) for sprees
 local function GetSound(key)
-	if not db then return nil, nil end
-	local pack = SOUND_PACKS[db.soundPack]
+	local pack = GetPack()
 	if not pack then return nil, nil end
 
-	local file
 	if pack.type == "milestone" then
-		local pool = pack.files[key]
-		if not pool or #pool == 0 then return nil, nil end
-		file = pool[math.random(#pool)]
+		return PickSound(pack, pack.files[key])
 	elseif pack.type == "random" then
-		-- Random packs have no spree sounds — spree key calls return nothing
+		-- Random packs have no spree sounds
 		if type(key) == "string" then return nil, nil end
-		local pool = pack.files
-		if not pool or #pool == 0 then return nil, nil end
-		file = pool[math.random(#pool)]
-	else
-		return nil, nil
+		return PickSound(pack, pack.files)
 	end
 
-	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
+	return nil, nil
 end
 
 -- Public sound API (used by Config preview)
-function MegaKill_GetSound(key)     return GetSound(key) end
-function MegaKill_GetSoundFile(key) local _, f = GetSound(key) return f end
-function MegaKill_PlayMilestoneSound(key)
-	local sound = GetSound(key)
-	if sound then PlaySoundFile(sound, "Master") end
-end
-
--- Expose pack type check for Config UI
-function MegaKill_PackIsMilestone() return PackIsMilestone() end
+function MegaKill_GetSound(key) return GetSound(key) end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
-
 local announceFrame, announceText, hideTimer
 
-local function ShowAnnounce(text, r, g, b, soundFile)
+local function ShowAnnounce(label)
 	if not db or not db.screenAnnounce then return end
-	if not announceFrame then return end
-	local pack = SOUND_PACKS[db.soundPack]
-	local displayText = text
-	if pack and pack.displayName and soundFile then
-		displayText = FileToDisplayName(soundFile)
-	end
-	if pack and pack.rainbow then
-		announceText:SetText(RainbowText(displayText))
-		announceText:SetTextColor(1, 1, 1)
-	else
-		announceText:SetText(displayText)
-		announceText:SetTextColor(r, g, b)
-	end
+	if not announceFrame or not label or label == "" then return end
+
+	-- Label may contain WoW color escape codes — pass through directly
+	announceText:SetText(label)
+	announceText:SetTextColor(1, 1, 1)
+
 	if hideTimer then hideTimer:Cancel() hideTimer = nil end
 	announceFrame:SetAlpha(1)
 	announceFrame:Show()
@@ -193,13 +99,10 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	end)
 end
 
--- Public announce API (used by Config preview and Events files)
-function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
-	ShowAnnounce(text, r, g, b, soundFile)
-end
+-- Public announce API (used by Config preview)
+function MegaKill_ShowAnnounce(label) ShowAnnounce(label) end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
-
 local function ResetMultiKill()
 	multiKillCount = 0
 	multiKillTimer = nil
@@ -219,36 +122,28 @@ local function OnKill(isPlayer)
 		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
 	end
 
-	local mk = MULTI_KILL[multiKillCount]
-	local sound, file = GetSound(multiKillCount)
-	if sound then PlaySoundFile(sound, "Master") end
-	-- For random packs: mk is nil beyond kill 9, but sound still plays
-	if mk then
-		ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
-	elseif file then
-		-- Random pack: filename is the announcement
-		ShowAnnounce("", 1, 1, 1, file)
-	end
+	local soundPath, label = GetSound(multiKillCount)
+	if soundPath then PlaySoundFile(soundPath, "Master") end
+	ShowAnnounce(label)
 
-	-- Sprees only fire for milestone packs (random packs have no spree sounds)
+	-- Sprees only fire for milestone packs
 	if isPlayer and db.spreeAnnounce and PackIsMilestone() then
 		spreeCount = spreeCount + 1
-		local spree = KILLING_SPREE[spreeCount]
-		if spree then
-			local spreeSound, spreeFile = GetSound(spree.sound)
-			C_Timer.After(mk and 1.6 or 0, function()
-				if spreeSound then PlaySoundFile(spreeSound, "Master") end
-				ShowAnnounce(spree.text, spree.r, spree.g, spree.b, spreeFile)
+		local pack = GetPack()
+		local spreeSlot = pack and pack.sprees and pack.sprees[spreeCount]
+		if spreeSlot then
+			local spreePath, spreeLabel = PickSound(pack, spreeSlot.sounds)
+			C_Timer.After(soundPath and 1.6 or 0, function()
+				if spreePath then PlaySoundFile(spreePath, "Master") end
+				ShowAnnounce(spreeLabel)
 			end)
 		end
 	end
 end
 
 -- ── Namespace: called by Events_Retail / Events_Classic ──────────────────────
-
-function MegaKill.OnKill(isPlayer)
-	OnKill(isPlayer)
-end
+function MegaKill.OnKill(isPlayer)   OnKill(isPlayer) end
+function MegaKill.GetDB()            return db end
 
 function MegaKill.OnPlayerDead()
 	if spreeCount >= 5 then
@@ -262,11 +157,20 @@ function MegaKill.OnPlayerAlive()
 	ResetMultiKill()
 end
 
-function MegaKill.GetDB()
-	return db
+-- ── Bootstrap ─────────────────────────────────────────────────────────────────
+local function BuildAnnounceFrame()
+	announceFrame = CreateFrame("Frame", nil, UIParent)
+	announceFrame:SetSize(500, 80)
+	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+	announceFrame:SetFrameStrata("HIGH")
+	announceFrame:Hide()
+	announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	announceText:SetAllPoints()
+	announceText:SetJustifyH("CENTER")
+	announceText:SetJustifyV("MIDDLE")
+	announceText:SetShadowOffset(2, -2)
+	announceText:SetShadowColor(0, 0, 0, 1)
 end
-
--- ── Bootstrap frame (PLAYER_LOGIN: init db and announce frame) ────────────────
 
 local MK_CoreFrame = CreateFrame("Frame")
 MK_CoreFrame:RegisterEvent("PLAYER_LOGIN")
@@ -277,20 +181,8 @@ MK_CoreFrame:SetScript("OnEvent", function(_, ev)
 			if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
 		end
 		db = MegaKill_Config
-
-		announceFrame = CreateFrame("Frame", nil, UIParent)
-		announceFrame:SetSize(500, 80)
-		announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
-		announceFrame:SetFrameStrata("HIGH")
-		announceFrame:Hide()
-		announceText = announceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-		announceText:SetAllPoints()
-		announceText:SetJustifyH("CENTER")
-		announceText:SetJustifyV("MIDDLE")
-		announceText:SetShadowOffset(2, -2)
-		announceText:SetShadowColor(0, 0, 0, 1)
-
-		print(PREFIX .. " |cffffd700v1.0.8|r loaded — type |cffffd700/mk help|r for commands.")
+		BuildAnnounceFrame()
+		print(PREFIX .. " |cffffd700v1.2.0|r loaded — type |cffffd700/mk help|r for commands.")
 	end
 end)
 
@@ -298,7 +190,6 @@ end)
 function MegaKill_OnPlayerLogin() end
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
-
 SLASH_MEGAKILL1 = "/megakill"
 SLASH_MEGAKILL2 = "/mk"
 SlashCmdList["MEGAKILL"] = function(msg)
@@ -331,10 +222,9 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		local testMap = { [2] = 2, [3] = 3, [4] = 6 }
 		local idx = testMap[n]
 		if idx then
-			local sound, file = GetSound(idx)
-			local mk = MULTI_KILL[idx]
-			if sound then PlaySoundFile(sound, "Master") end
-			ShowAnnounce(mk and mk.text or "", mk and mk.r or 1, mk and mk.g or 1, mk and mk.b or 0, file)
+			local soundPath, label = GetSound(idx)
+			if soundPath then PlaySoundFile(soundPath, "Master") end
+			ShowAnnounce(label)
 		else
 			print(PREFIX .. ": Use /mk test 2, 3, or 4")
 		end
@@ -344,12 +234,13 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		else print(PREFIX .. ": Config UI not loaded yet.") end
 
 	elseif msg == "status" then
+		local pack = GetPack()
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
-		print("  Sound pack:  |cffffd700" .. db.soundPack .. "|r")
+		print("  Sound pack:  |cffffd700" .. (pack and pack.label or db.soundPack) .. "|r")
 		print("  Pack type:   |cffffd700" .. (PackIsMilestone() and "milestone" or "random") .. "|r")
 
 	else
