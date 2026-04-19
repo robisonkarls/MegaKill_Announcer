@@ -161,24 +161,24 @@ local function CreateConfigPanel()
 	local fontSlider = CreateFrame("Slider", ADDON_NAME .. "_FontSlider", content, "OptionsSliderTemplate")
 	fontSlider:SetPoint("TOPLEFT", 20, yOffset)
 	fontSlider:SetWidth(260)
-	fontSlider:SetMinMaxValues(16, 64)
+	fontSlider:SetMinMaxValues(16, 128)
 	fontSlider:SetValueStep(1)
 	fontSlider:SetObeyStepOnDrag(true)
 	fontSlider:SetValue(db.fontSize)
 
 	local fsn = fontSlider:GetName()
 	if _G[fsn .. "Low"]  then _G[fsn .. "Low"]:SetText("16")  end
-	if _G[fsn .. "High"] then _G[fsn .. "High"]:SetText("64") end
+	if _G[fsn .. "High"] then _G[fsn .. "High"]:SetText("128") end
 
 	local fontValue = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	fontValue:SetPoint("LEFT", fontSlider, "RIGHT", 12, 0)
-	fontValue:SetText(db.fontSize .. "pt")
+	fontValue:SetText(db.fontSize)
 
 	local fontPreviewTimer = nil
 	fontSlider:SetScript("OnValueChanged", function(self, value)
 		value = math.floor(value + 0.5)
 		db.fontSize = value
-		fontValue:SetText(value .. "pt")
+		fontValue:SetText(value)
 		if MegaKill_SetFontSize then MegaKill_SetFontSize(value) end
 		-- Debounce: show preview 0.1s after the player stops dragging
 		if fontPreviewTimer then fontPreviewTimer:Cancel() end
