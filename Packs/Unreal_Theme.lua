@@ -1,5 +1,19 @@
 -- MegaKill Announcer - Built-in Pack: Unreal Tournament
 -- Milestone pack: each kill count and spree maps to a specific sound and label.
+-- Labels use WoW item quality colors: common → rare → epic → legendary.
+
+-- Item quality colors
+local C = {
+	common    = "|cffffffff",  -- white
+	rare      = "|cff0070dd",  -- blue
+	epic      = "|cffa335ee",  -- purple
+	legendary = "|cffff8000",  -- orange
+	reset     = "|r",
+}
+
+local function color(quality, text)
+	return C[quality] .. text .. C.reset
+end
 
 MegaKill_RegisterPack("Unreal_Theme", {
 	type      = "milestone",
@@ -8,46 +22,47 @@ MegaKill_RegisterPack("Unreal_Theme", {
 	addonName = "MegaKill_Announcer",
 	soundsPath = "assets/Unreal_Theme",
 
-	-- Kill count slots: each entry is a list of { label, sound } options (picked randomly)
+	-- Kill count slots — color escalates with streak
+	-- [1-2] common, [3-4] rare, [5-6] epic, [7+] legendary
 	files = {
 		[1] = {
-			{ label = "First Blood!",    sound = "first_blood.wav" },
+			{ label = color("common",    "First Blood!"),    sound = "first_blood.wav"    },
 		},
 		[2] = {
-			{ label = "Double Kill!",    sound = "double_kill.wav" },
+			{ label = color("common",    "Double Kill!"),    sound = "double_kill.wav"    },
 		},
 		[3] = {
-			{ label = "Triple Kill!",    sound = "triple_kill.wav" },
+			{ label = color("rare",      "Triple Kill!"),    sound = "triple_kill.wav"    },
 		},
 		[4] = {
-			{ label = "Quadra Kill!",    sound = "mega_kill.wav" },
+			{ label = color("rare",      "Quadra Kill!"),    sound = "mega_kill.wav"      },
 		},
 		[5] = {
-			{ label = "Mega Kill!",      sound = "mega_kill.wav" },
+			{ label = color("epic",      "Mega Kill!"),      sound = "mega_kill.wav"      },
 		},
 		[6] = {
-			{ label = "Monster Kill!",   sound = "monster_kill.wav" },
+			{ label = color("epic",      "Monster Kill!"),   sound = "monster_kill.wav"   },
 		},
 		[7] = {
-			{ label = "Ultra Kill!",     sound = "ultra_kill.wav" },
+			{ label = color("legendary", "Ultra Kill!"),     sound = "ultra_kill.wav"     },
 		},
 		[8] = {
-			{ label = "Ludicrous Kill!", sound = "ludicrous_kill.wav" },
-			{ label = "Ownage!",         sound = "ownage.wav" },
+			{ label = color("legendary", "Ludicrous Kill!"), sound = "ludicrous_kill.wav" },
+			{ label = color("legendary", "Ownage!"),         sound = "ownage.wav"         },
 		},
 		[9] = {
-			{ label = "Holy Sh*t!!",     sound = "holy_shit.wav" },
-			{ label = "Ownage!",         sound = "ownage.wav" },
+			{ label = color("legendary", "Holy Sh*t!!"),     sound = "holy_shit.wav"      },
+			{ label = color("legendary", "Ownage!"),         sound = "ownage.wav"         },
 		},
 	},
 
-	-- Spree slots: keyed by cumulative kill count without dying
+	-- Spree slots — all legendary, they're earned
 	sprees = {
-		[5]  = { label = "Killing Spree!", sounds = { { label = "Killing Spree!", sound = "killing_spree.wav" } } },
-		[10] = { label = "Rampage!",       sounds = { { label = "Rampage!",       sound = "rampage.wav"       } } },
-		[15] = { label = "Unstoppable!",   sounds = { { label = "Unstoppable!",   sound = "unstoppable.wav"   } } },
-		[20] = { label = "Dominating!",    sounds = { { label = "Dominating!",    sound = "dominating.wav"    } } },
-		[25] = { label = "Godlike!",       sounds = { { label = "Godlike!",       sound = "godlike.wav"       } } },
-		[30] = { label = "Wicked Sick!",   sounds = { { label = "Wicked Sick!",   sound = "wicked_sick.wav"   } } },
+		[5]  = { label = color("legendary", "Killing Spree!"), sounds = { { label = color("legendary", "Killing Spree!"), sound = "killing_spree.wav" } } },
+		[10] = { label = color("legendary", "Rampage!"),       sounds = { { label = color("legendary", "Rampage!"),       sound = "rampage.wav"       } } },
+		[15] = { label = color("legendary", "Unstoppable!"),   sounds = { { label = color("legendary", "Unstoppable!"),   sound = "unstoppable.wav"   } } },
+		[20] = { label = color("legendary", "Dominating!"),    sounds = { { label = color("legendary", "Dominating!"),    sound = "dominating.wav"    } } },
+		[25] = { label = color("legendary", "Godlike!"),       sounds = { { label = color("legendary", "Godlike!"),       sound = "godlike.wav"       } } },
+		[30] = { label = color("legendary", "Wicked Sick!"),   sounds = { { label = color("legendary", "Wicked Sick!"),   sound = "wicked_sick.wav"   } } },
 	},
 })
