@@ -2,7 +2,8 @@
 -- Event registration is handled by Events_Retail.lua or Events_Classic.lua.
 -- Sound packs register themselves via MegaKill_RegisterPack() after this file loads.
 
-local PREFIX = "|cffff7d0aMegaKill|r"
+local PREFIX   = "|cffff7d0aMegaKill|r"
+local WOW_FONT = "Fonts\\FRIZQT__.TTF"
 
 -- ── Shared namespace ──────────────────────────────────────────────────────────
 MegaKill = {}
@@ -19,15 +20,18 @@ local DEFAULTS = {
 	fontSize       = 32,
 }
 
--- ── State ───────────────────────────────────────────────────────────────────────
+-- ── State ─────────────────────────────────────────────────────────────────────
 local db
+local multiKillCount  = 0
+local multiKillTimer  = nil
+local spreeCount      = 0
+local announceFrame, announceText, hideTimer
 
 -- ── Pack registry ─────────────────────────────────────────────────────────────
 -- Packs register themselves by calling MegaKill_RegisterPack().
 -- Built-in packs live in Packs/. Community packs are separate addons.
 local registry = {}
 
--- Public API: called by every pack (built-in and community)
 function MegaKill_RegisterPack(key, definition)
 	registry[key] = definition
 end
@@ -41,22 +45,15 @@ local function PackIsMilestone()
 	return pack and pack.type == "milestone"
 end
 
--- Expose for Config UI
+-- ── Public API ────────────────────────────────────────────────────────────────
 function MegaKill_PackIsMilestone() return PackIsMilestone() end
-function MegaKill_GetRegistry()    return registry end
-local WOW_FONT = "Fonts\\FRIZQT__.TTF"
+function MegaKill_GetRegistry()     return registry end
 
 function MegaKill_SetFontSize(size)
-	if announceText then
-		announceText:SetFont(WOW_FONT, size, "OUTLINE")
-		-- Grow frame to fit larger text
-		announceFrame:SetHeight(size * 2.5)
-	end
+	if not announceText then return end
+	announceText:SetFont(WOW_FONT, size, "OUTLINE")
+	announceFrame:SetHeight(size * 2.5)
 end
-
-local multiKillCount = 0
-local multiKillTimer = nil
-local spreeCount     = 0
 
 -- ── Sound selection ───────────────────────────────────────────────────────────
 -- Returns soundPath, label for the given key.
@@ -75,7 +72,6 @@ local function GetSound(key)
 	if pack.type == "milestone" then
 		return PickSound(pack, pack.files[key])
 	elseif pack.type == "random" then
-		-- Random packs have no spree sounds
 		if type(key) == "string" then return nil, nil end
 		return PickSound(pack, pack.files)
 	end
@@ -83,17 +79,13 @@ local function GetSound(key)
 	return nil, nil
 end
 
--- Public sound API (used by Config preview)
 function MegaKill_GetSound(key) return GetSound(key) end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
-local announceFrame, announceText, hideTimer
-
 local function ShowAnnounce(label)
 	if not db or not db.screenAnnounce then return end
 	if not announceFrame or not label or label == "" then return end
 
-	-- Label may contain WoW color escape codes — pass through directly
 	announceText:SetText(label)
 	announceText:SetTextColor(1, 1, 1)
 
@@ -110,7 +102,6 @@ local function ShowAnnounce(label)
 	end)
 end
 
--- Public announce API (used by Config preview)
 function MegaKill_ShowAnnounce(label) ShowAnnounce(label) end
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
@@ -128,7 +119,6 @@ local function OnKill(isPlayer)
 	multiKillCount = multiKillCount + 1
 	multiKillTimer = C_Timer.NewTimer(db.killWindow, ResetMultiKill)
 
-	-- Streak bar only makes sense for milestone packs
 	if MegaKill_StreakBar_Start and db.streakBar and PackIsMilestone() then
 		MegaKill_StreakBar_Start(multiKillCount, db.killWindow)
 	end
@@ -137,7 +127,6 @@ local function OnKill(isPlayer)
 	if soundPath then PlaySoundFile(soundPath, "Master") end
 	ShowAnnounce(label)
 
-	-- Sprees only fire for milestone packs
 	if isPlayer and db.spreeAnnounce and PackIsMilestone() then
 		spreeCount = spreeCount + 1
 		local pack = GetPack()
@@ -153,8 +142,8 @@ local function OnKill(isPlayer)
 end
 
 -- ── Namespace: called by Events_Retail / Events_Classic ──────────────────────
-function MegaKill.OnKill(isPlayer)   OnKill(isPlayer) end
-function MegaKill.GetDB()            return db end
+function MegaKill.OnKill(isPlayer) OnKill(isPlayer) end
+function MegaKill.GetDB()          return db end
 
 function MegaKill.OnPlayerDead()
 	if spreeCount >= 5 then
@@ -171,7 +160,7 @@ end
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 local function BuildAnnounceFrame()
 	announceFrame = CreateFrame("Frame", nil, UIParent)
-	announceFrame:SetSize(500, 80)
+	announceFrame:SetSize(500, db.fontSize * 2.5)
 	announceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
 	announceFrame:SetFrameStrata("HIGH")
 	announceFrame:Hide()
@@ -182,7 +171,6 @@ local function BuildAnnounceFrame()
 	announceText:SetShadowOffset(2, -2)
 	announceText:SetShadowColor(0, 0, 0, 1)
 	announceText:SetFont(WOW_FONT, db.fontSize, "OUTLINE")
-	announceFrame:SetHeight(db.fontSize * 2.5)
 end
 
 local MK_CoreFrame = CreateFrame("Frame")
@@ -199,8 +187,7 @@ MK_CoreFrame:SetScript("OnEvent", function(_, ev)
 	end
 end)
 
--- Kept for XML compat, no-op
-function MegaKill_OnPlayerLogin() end
+function MegaKill_OnPlayerLogin() end  -- XML compat, no-op
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
 SLASH_MEGAKILL1 = "/megakill"
