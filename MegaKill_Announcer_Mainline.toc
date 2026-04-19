@@ -9,5 +9,6 @@
 
 Bootstrap.xml
 Core.lua
+Events_Retail.lua
 StreakBar.lua
 Config.lua

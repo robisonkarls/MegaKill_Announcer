@@ -1,20 +1,11 @@
+-- MegaKill Announcer - Core (shared logic)
+-- Event registration is handled by Events_Retail.lua or Events_Classic.lua
+-- depending on which TOC loaded this session.
+
 local PREFIX = "|cffff7d0aMegaKill|r"
 
--- ── Top-level event frame (created before any function runs) ─────────────────
--- Must be at file scope so RegisterEvent runs in a clean execution context,
--- not inside a callback. This is how DBM and other major addons do it.
-local MK_Frame = CreateFrame("Frame")
-MK_Frame:RegisterEvent("PLAYER_LOGIN")
-MK_Frame:RegisterEvent("PLAYER_DEAD")
-MK_Frame:RegisterEvent("PLAYER_ALIVE")
--- Version check at file scope (before any callback)
--- WOW_PROJECT_MAINLINE = 1 always; WOW_PROJECT_CLASSIC = 2; don't rely on constants being defined
-local IS_RETAIL_PRECHECK = (WOW_PROJECT_ID == 1)
-if IS_RETAIL_PRECHECK then
-	MK_Frame:RegisterEvent("UNIT_DIED")                   -- Retail 12.0+: replaces CLEU
-else
-	MK_Frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED") -- Classic only
-end
+-- ── Shared namespace ──────────────────────────────────────────────────────────
+MegaKill = {}
 
 -- Default settings
 local DEFAULTS = {
@@ -70,10 +61,8 @@ local SOUND_PACKS = {
 		Wicked_Sick   = { "wicked_sick.wav" },
 	},
 	Flamboyant_theme = {
-		-- Use filename as announce text, render in rainbow colors
 		displayName = true,
 		rainbow     = true,
-		-- Simple 5-slot mode: kill count capped at 5, no spree tracking
 		simpleSlots = true,
 		[1] = { "CHERRY_POPPAH.wav", "Gotcha.wav", "Uuuuuhh.wav", "Dead.wav" },
 		[2] = { "Its_a_three_wayy.wav", "Bitch_Slapped.wav", "Hoo_hu_huuu.wav", "Uuuuu_Scary.wav" },
@@ -83,16 +72,14 @@ local SOUND_PACKS = {
 	},
 }
 
--- State
+-- ── State ─────────────────────────────────────────────────────────────────────
+
 local db
-local playerGUID
 local multiKillCount = 0
 local multiKillTimer = nil
 local spreeCount     = 0
-local IS_RETAIL      = false
-local PLAYER_TYPE_FLAG = 0x400
 
--- Text helpers
+-- ── Text helpers ──────────────────────────────────────────────────────────────
 
 -- "CHERRY_POPPAH.wav" -> "Cherry Poppah"
 local function FileToDisplayName(filename)
@@ -104,7 +91,6 @@ local function FileToDisplayName(filename)
 	return name
 end
 
--- Wrap each character in a cycling rainbow color
 local RAINBOW = {
 	"|cffff0000", "|cffff7f00", "|cffffff00",
 	"|cff00ff00", "|cff0000ff", "|cff8b00ff",
@@ -129,11 +115,10 @@ local function GetSound(key)
 	if not db then return nil, nil end
 	local pack = SOUND_PACKS[db.soundPack]
 	if not pack then return nil, nil end
-	-- simpleSlots: cap numeric keys at 5, ignore spree string keys
 	if pack.simpleSlots and type(key) == "number" then
 		key = math.min(key, 5)
 	elseif pack.simpleSlots and type(key) == "string" then
-		return nil, nil  -- no spree slots in simple mode
+		return nil, nil
 	end
 	local pool = pack[key]
 	if not pool or #pool == 0 then return nil, nil end
@@ -141,31 +126,18 @@ local function GetSound(key)
 	return "Interface\\AddOns\\MegaKill_Announcer\\assets\\" .. db.soundPack .. "\\" .. file, file
 end
 
-local function PlayMilestoneSound(key)
+-- Public sound API (used by Config preview)
+function MegaKill_GetSound(key)    return GetSound(key) end
+function MegaKill_GetSoundFile(key) local _, f = GetSound(key) return f end
+function MegaKill_PlayMilestoneSound(key)
 	local sound = GetSound(key)
 	if sound then PlaySoundFile(sound, "Master") end
-end
-
-function MegaKill_PlayMilestoneSound(key)
-	PlayMilestoneSound(key)
-end
-
--- Returns both the sound path and filename for a given key (single roll)
-function MegaKill_GetSound(key)
-	return GetSound(key)
-end
-
--- Returns the selected file for a given key (for Config preview)
-function MegaKill_GetSoundFile(key)
-	local _, file = GetSound(key)
-	return file
 end
 
 -- ── Announce frame ────────────────────────────────────────────────────────────
 
 local announceFrame, announceText, hideTimer
 
--- packFlags: optional table with displayName/rainbow overrides from the sound pack
 local function ShowAnnounce(text, r, g, b, soundFile)
 	if not db or not db.screenAnnounce then return end
 	if not announceFrame then return end
@@ -194,10 +166,10 @@ local function ShowAnnounce(text, r, g, b, soundFile)
 	end)
 end
 
+-- Public announce API (used by Config preview and Events files)
 function MegaKill_ShowAnnounce(text, r, g, b, soundFile)
 	ShowAnnounce(text, r, g, b, soundFile)
 end
-
 
 -- ── Kill logic ────────────────────────────────────────────────────────────────
 
@@ -239,12 +211,34 @@ local function OnKill(isPlayer)
 	end
 end
 
--- ── Bootstrap ───────────────────────────────────────────────────────────────
+-- ── Namespace: called by Events_Retail / Events_Classic ──────────────────────
 
-MK_Frame:SetScript("OnEvent", function(_, ev, ...)
+function MegaKill.OnKill(isPlayer)
+	OnKill(isPlayer)
+end
+
+function MegaKill.OnPlayerDead()
+	if spreeCount >= 5 then
+		print(PREFIX .. " Your killing spree of " .. spreeCount .. " has ended!")
+	end
+	spreeCount = 0
+	ResetMultiKill()
+end
+
+function MegaKill.OnPlayerAlive()
+	ResetMultiKill()
+end
+
+function MegaKill.GetDB()
+	return db
+end
+
+-- ── Bootstrap frame (shared: PLAYER_LOGIN only) ───────────────────────────────
+
+local MK_CoreFrame = CreateFrame("Frame")
+MK_CoreFrame:RegisterEvent("PLAYER_LOGIN")
+MK_CoreFrame:SetScript("OnEvent", function(_, ev)
 	if ev == "PLAYER_LOGIN" then
-		IS_RETAIL = (WOW_PROJECT_ID == 1)
-		playerGUID = UnitGUID("player")
 		MegaKill_Config = MegaKill_Config or {}
 		for k, v in pairs(DEFAULTS) do
 			if MegaKill_Config[k] == nil then MegaKill_Config[k] = v end
@@ -265,46 +259,11 @@ MK_Frame:SetScript("OnEvent", function(_, ev, ...)
 		announceText:SetShadowColor(0, 0, 0, 1)
 
 		print(PREFIX .. " |cffffd700v1.0.8|r loaded — type |cffffd700/mk help|r for commands.")
-
-	elseif ev == "PLAYER_DEAD" then
-		if spreeCount >= 5 then
-			local endMsg = "Your killing spree of " .. spreeCount .. " has ended!"
-			print(PREFIX .. " " .. endMsg)
-		end
-		spreeCount = 0
-		ResetMultiKill()
-
-	elseif ev == "PLAYER_ALIVE" then
-		ResetMultiKill()
-
-	elseif ev == "UNIT_DIED" then
-		-- Retail 12.0+: UNIT_DIED fires when a unit dies near the player.
-		-- unitGUID is a SecretValue when unit identity is restricted, but
-		-- UnitIsEnemy/UnitIsPlayer work on the unit token which is not secret.
-		if not db or not db.enabled then return end
-		local unitGUID = ...
-		if not unitGUID then return end
-		-- We can check if the player was the responsible killer via the kill credit
-		-- unitGUID is the dead unit; check hostility via UnitReaction if token available
-		-- Since destGUID is a secret value we use a simpler heuristic:
-		-- fire OnKill for any nearby enemy death while we're not dead
-		if UnitIsDeadOrGhost("player") then return end
-		local isPlayer = (C_PlayerInfo and C_PlayerInfo.IsPlayerFromGUID and C_PlayerInfo.IsPlayerFromGUID(unitGUID)) or false
-		OnKill(isPlayer)
-
-	elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
-		-- Classic only — ignored on Retail (CLEU is restricted there)
-		if IS_RETAIL or not db then return end
-		local _, subEvent, _, sourceGUID, _, _, _, _, _, destFlags = CombatLogGetCurrentEventInfo()
-		if subEvent == "PARTY_KILL" and sourceGUID == playerGUID then
-			local isPlayer = bit.band(destFlags, PLAYER_TYPE_FLAG) ~= 0
-			OnKill(isPlayer)
-		end
 	end
 end)
 
--- Bootstrap.xml is only used for the BootFrame name (no events registered there)
-function MegaKill_OnPlayerLogin() end  -- kept for XML compat, no-op now
+-- Kept for XML compat, no-op
+function MegaKill_OnPlayerLogin() end
 
 -- ── Slash commands ────────────────────────────────────────────────────────────
 
@@ -321,10 +280,6 @@ SlashCmdList["MEGAKILL"] = function(msg)
 	elseif msg == "screen" then
 		db.screenAnnounce = not db.screenAnnounce
 		print(PREFIX .. ": Screen announce " .. (db.screenAnnounce and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
-
-	elseif msg == "sound" then
-		db.sound = not db.sound
-		print(PREFIX .. ": Sound " .. (db.sound and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
 
 	elseif msg == "pvp" then
 		db.onlyPvP = not db.onlyPvP
@@ -344,9 +299,10 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		local testMap = { [2] = 2, [3] = 3, [4] = 6 }
 		local idx = testMap[n]
 		if idx then
-			local mk = MULTI_KILL[idx]
-			ShowAnnounce(mk.text, mk.r, mk.g, mk.b)
-			PlayMilestoneSound(idx)
+			local mk = { text = "Test Kill!", r = 1.0, g = 1.0, b = 0.0 }
+			local sound, file = GetSound(idx)
+			if sound then PlaySoundFile(sound, "Master") end
+			ShowAnnounce(mk.text, mk.r, mk.g, mk.b, file)
 		else
 			print(PREFIX .. ": Use /mk test 2, 3, or 4")
 		end
@@ -359,18 +315,17 @@ SlashCmdList["MEGAKILL"] = function(msg)
 		print(PREFIX .. " |cffffd700Status:|r")
 		print("  Enabled:     " .. (db.enabled and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Screen:      " .. (db.screenAnnounce and "|cff00ff00Yes|r" or "|cffff0000No|r"))
-		print("  Sound:       " .. (db.sound and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  PvP-only:    " .. (db.onlyPvP and "|cff00ff00Yes|r" or "|cffff0000No|r"))
 		print("  Kill window: |cffffd700" .. db.killWindow .. "s|r")
+		print("  Sound pack:  |cffffd700" .. db.soundPack .. "|r")
 
 	else
 		print(PREFIX .. " |cffffd700Commands:|r")
 		print("  /mk            — Toggle on/off")
 		print("  /mk config     — Open settings UI")
 		print("  /mk screen     — Toggle screen text")
-		print("  /mk sound      — Toggle sounds")
 		print("  /mk pvp        — Toggle PvP-only mode")
-		print("  /mk window X   — Set multi-kill window (5-60s)")
+		print("  /mk window X   — Set multi-kill window (5–60s)")
 		print("  /mk test 2/3/4 — Preview announcements")
 		print("  /mk status     — Show current settings")
 	end
