@@ -174,13 +174,18 @@ local function CreateConfigPanel()
 	fontValue:SetPoint("LEFT", fontSlider, "RIGHT", 12, 0)
 	fontValue:SetText(db.fontSize .. "pt")
 
+	local fontPreviewTimer = nil
 	fontSlider:SetScript("OnValueChanged", function(self, value)
 		value = math.floor(value + 0.5)
 		db.fontSize = value
 		fontValue:SetText(value .. "pt")
 		if MegaKill_SetFontSize then MegaKill_SetFontSize(value) end
-		-- Show a live preview so the player sees the size change immediately
-		if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce("MegaKill!") end
+		-- Debounce: show preview 0.1s after the player stops dragging
+		if fontPreviewTimer then fontPreviewTimer:Cancel() end
+		fontPreviewTimer = C_Timer.NewTimer(0.1, function()
+			if MegaKill_ShowAnnounce then MegaKill_ShowAnnounce("MegaKill!") end
+			fontPreviewTimer = nil
+		end)
 	end)
 
 	yOffset = yOffset - 55
