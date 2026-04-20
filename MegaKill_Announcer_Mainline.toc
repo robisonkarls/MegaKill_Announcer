@@ -2,12 +2,15 @@
 ## Title: MegaKill Announcer
 ## Notes: Announces multi-kills and killing sprees with screen text, sounds, and chat messages.
 ## Author: Robison Karls Custodio
-## Version: 1.0.8
+## Version: 1.2.0
 ## X-Curse-Project-ID: 1516233
 ## X-Wago-ID: 4N2kam6L
 ## SavedVariables: MegaKill_Config
 
 Bootstrap.xml
 Core.lua
+Events_Retail.lua
+Packs/Unreal_Theme.lua
+Packs/Flamboyant_theme.lua
 StreakBar.lua
 Config.lua

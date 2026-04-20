@@ -16,6 +16,7 @@ ignore:
   - REFACTOR_PLAN.md
   - WAGO_DEPLOY_PLAN.md
   - push.sh
+  - PACK_AUTHORING.md
   - "*.md~"
   - "*.bak"
 
