@@ -35,7 +35,7 @@ MegaKill_RegisterPack("Unreal_Theme", {
 			{ label = color("rare",      "Triple Kill!"),    sound = "triple_kill.wav"    },
 		},
 		[4] = {
-			{ label = color("rare",      "Quadra Kill!"),    sound = "mega_kill.wav"      },
+			{ label = color("rare",      "Mega Kill!"),    sound = "mega_kill.wav"      },
 		},
 		[5] = {
 			{ label = color("epic",      "Mega Kill!"),      sound = "mega_kill.wav"      },

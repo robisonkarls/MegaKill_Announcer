@@ -40,7 +40,7 @@ Anyone can publish a sound pack as a separate addon. Install it alongside MegaKi
 | 1 | First Blood! | White |
 | 2 | Double Kill! | White |
 | 3 | Triple Kill! | Blue |
-| 4 | Quadra Kill! | Blue |
+| 4 | Mega Kill! | Blue |
 | 5 | Mega Kill! | Purple |
 | 6 | Monster Kill! | Purple |
 | 7 | Ultra Kill! | Orange |
